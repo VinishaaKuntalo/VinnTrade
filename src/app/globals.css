@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --background: #020617;
+  --foreground: #e2e8f0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.25);
+  color: #f8fafc;
+}
+
+@keyframes vinn-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.vinn-enter {
+  animation: vinn-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.vinn-delay-1 {
+  animation-delay: 0.08s;
+}
+.vinn-delay-2 {
+  animation-delay: 0.16s;
+}
+.vinn-delay-3 {
+  animation-delay: 0.24s;
+}
+.vinn-delay-4 {
+  animation-delay: 0.32s;
+}
+
+/* Improve focus visibility for keyboard users */
+:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.7);
+  outline-offset: 2px;
+}
