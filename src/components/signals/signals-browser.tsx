@@ -10,6 +10,8 @@ import { GEO_SENSITIVITY_LABEL } from "@/types/signals";
 import type { StockConstituent } from "@/types/stocks";
 import { SignalCard } from "./signal-card";
 import { SignalDetailPanel } from "./signal-detail-panel";
+import { RealSignalOverlay, RealSignalSkeleton, RealSignalError, RealSignalRateLimited } from "./real-signal-overlay";
+import { useRealSignal } from "@/hooks/use-real-signal";
 import { cn } from "@/lib/cn";
 import {
   Search,
@@ -64,6 +66,17 @@ const DIR_STATS = {
   SELL: ALL_SIGNALS.filter((s) => s.direction === "SELL").length,
   HOLD: ALL_SIGNALS.filter((s) => s.direction === "HOLD").length,
 };
+
+function RealPanel({ selected, onClose }: { selected: StockSignal; onClose: () => void }) {
+  const state = useRealSignal(selected.symbol);
+  if (state.status === "idle" || state.status === "loading")
+    return <RealSignalSkeleton symbol={selected.symbol} onClose={onClose} />;
+  if (state.status === "rate_limited")
+    return <RealSignalRateLimited symbol={selected.symbol} retryAfter={state.retryAfter} onClose={onClose} />;
+  if (state.status === "error")
+    return <RealSignalError symbol={selected.symbol} message={state.message} onClose={onClose} />;
+  return <RealSignalOverlay real={state.data} base={selected} onClose={onClose} />;
+}
 
 export function SignalsBrowser() {
   const [query, setQuery] = useState("");
@@ -260,19 +273,21 @@ export function SignalsBrowser() {
             </div>
           </div>
 
-          {/* detail panel */}
+          {/* detail panel — real market data */}
           <div className="hidden lg:flex flex-1 overflow-hidden p-4">
             {selected ? (
               <div className="w-full max-w-lg mx-auto h-full">
-                <SignalDetailPanel
-                  signal={selected}
-                  onClose={() => setSelected(null)}
-                />
+                <RealPanel selected={selected} onClose={() => setSelected(null)} />
               </div>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
                 <Zap className="h-8 w-8 text-slate-700" />
-                <p className="text-sm text-slate-500">Select a signal to see the full analysis</p>
+                <p className="text-sm text-slate-500">
+                  Select a signal to fetch real data from Yahoo Finance
+                </p>
+                <p className="text-xs text-slate-600 max-w-xs">
+                  RSI · MACD · EMA crossover · ATR · momentum — computed from live historical OHLCV
+                </p>
               </div>
             )}
           </div>

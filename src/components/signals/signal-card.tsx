@@ -79,10 +79,14 @@ export function SignalCard({
         </span>
       </div>
 
-      {/* row 4 — trigger */}
+      {/* row 4 — trigger + live indicator */}
       <div className="mt-2.5 flex items-start gap-1.5">
         <Zap className="h-3 w-3 mt-0.5 shrink-0 text-amber-400" />
         <p className="text-[11px] text-slate-400 line-clamp-1">{signal.trigger.headline}</p>
+      </div>
+      <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-600">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        Click to load real RSI · MACD · EMA from Yahoo Finance
       </div>
     </button>
   );
