@@ -1,7 +1,7 @@
 export type Direction = "BUY" | "SELL" | "HOLD";
 export type Volatility = "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
 export type Timeframe = "Intraday" | "Short-term" | "Medium-term" | "Long-term";
-export type AssetClass = "Stocks" | "Commodities" | "Indices" | "ETFs" | "Bonds";
+export type AssetClass = "Stocks" | "Commodities" | "Indices" | "ETFs" | "Bonds" | "Forex" | "Crypto";
 export type GeoSensitivity =
   | "military_escalation"
   | "energy_supply"

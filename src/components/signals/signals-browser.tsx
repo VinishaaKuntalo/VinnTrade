@@ -119,7 +119,7 @@ export function SignalsBrowser() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* ── LEFT SIDEBAR ── */}
       <aside className="hidden lg:flex w-52 shrink-0 flex-col border-r border-white/8 bg-slate-950 overflow-y-auto">
         <div className="p-3 border-b border-white/8">
