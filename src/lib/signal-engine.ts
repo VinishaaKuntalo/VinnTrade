@@ -9,8 +9,10 @@ import type {
   TriggeringEvent,
   Volatility,
   Timeframe,
+  AssetClass,
 } from "@/types/signals";
 import type { StockConstituent } from "@/types/stocks";
+import type { ExtraAsset } from "@/data/extra-assets";
 
 /* ── seeded RNG ──────────────────────────────────────────────── */
 function h32(s: string): number {
@@ -25,6 +27,70 @@ function h32(s: string): number {
 function clamp(v: number, lo = 0, hi = 100) {
   return Math.min(hi, Math.max(lo, Math.round(v)));
 }
+
+/* ── extra asset triggers ────────────────────────────────────── */
+const EXTRA_TRIGGERS: Record<string, { geo: GeoSensitivity; headlines: string[] }> = {
+  "Commodities": {
+    geo: "energy_supply",
+    headlines: [
+      "Central banks accelerate gold reserve accumulation",
+      "Dollar weakness boosts precious metals demand",
+      "Geopolitical safe-haven buying intensifies",
+      "OPEC+ production cut exceeds expectations",
+      "Red Sea disruptions spike commodity freight costs",
+    ],
+  },
+  "Forex": {
+    geo: "monetary_policy",
+    headlines: [
+      "Fed signals rate hold — dollar weakens broadly",
+      "ECB cuts ahead of expectations — EUR/USD drops",
+      "BoJ yield-curve control exit spikes JPY",
+      "EM currencies under pressure — capital outflows",
+      "USD index at 5-month high on safe-haven demand",
+    ],
+  },
+  "Crypto": {
+    geo: "political_instability",
+    headlines: [
+      "Bitcoin ETF inflows hit record monthly high",
+      "SEC signals clearer crypto regulatory framework",
+      "Macro risk-off drags crypto alongside equities",
+      "Stablecoin regulation vote advances in Senate",
+      "Mining difficulty adjustment signals miner confidence",
+    ],
+  },
+  "Bonds": {
+    geo: "monetary_policy",
+    headlines: [
+      "10-year yield breaks above 4.5% on jobs data",
+      "Fed balance sheet runoff pace revised — bonds rally",
+      "Credit spreads widen on growth concern",
+      "Foreign Treasury demand softens — auction tails",
+      "Inflation expectations revised — TIPS outperform",
+    ],
+  },
+  "Indices": {
+    geo: "trade_restrictions",
+    headlines: [
+      "Tariff escalation triggers broad index sell-off",
+      "Earnings season beats lift index breadth",
+      "VIX spikes — options market prices tail risk",
+      "Emerging market indices diverge on China stimulus",
+      "Small-cap index lags on rate sensitivity concerns",
+    ],
+  },
+  "ETFs": {
+    geo: "trade_restrictions",
+    headlines: [
+      "Sector rotation accelerates into defensives",
+      "Record ETF outflows from tech sector funds",
+      "Energy ETF rebalance triggers crude spot impact",
+      "Factor ETF flows signal risk-off positioning",
+      "Thematic ETF assets under pressure — rate headwinds",
+    ],
+  },
+};
 
 /* ── sector → typical price ranges ──────────────────────────── */
 const PRICE_RANGE: Record<string, [number, number]> = {
@@ -150,18 +216,6 @@ const SECTOR_TRIGGERS: Record<string, { geo: GeoSensitivity; headlines: string[]
   },
 };
 
-function getTrigger(sector: string, seed2: number): TriggeringEvent {
-  const entry = SECTOR_TRIGGERS[sector] ?? SECTOR_TRIGGERS["Information Technology"];
-  const idx = Math.floor(seed2 * entry.headlines.length);
-  const hoursAgo = Math.floor(seed2 * 18) + 1;
-  const severity = clamp(55 + seed2 * 40);
-  return {
-    headline: entry.headlines[idx],
-    category: entry.geo,
-    severity,
-    timeAgo: hoursAgo < 2 ? `${hoursAgo}h ago` : `${hoursAgo}h ago`,
-  };
-}
 
 /* ── direction logic ─────────────────────────────────────────── */
 const SECTOR_BIAS: Record<string, number> = {
@@ -253,60 +307,72 @@ const SECTOR_TAGS: Record<string, string[]> = {
   "Real Estate": ["rates", "REIT", "duration"],
 };
 
-/* ── main export ─────────────────────────────────────────────── */
-export function buildSignal(stock: StockConstituent): StockSignal {
-  const seed1 = h32(stock.symbol);
-  const seed2 = h32(stock.symbol + "2");
-  const seed3 = h32(stock.symbol + "3");
-  const seed4 = h32(stock.symbol + "4");
+const GEO_MAP: Record<string, GeoSensitivity> = {
+  "Energy": "energy_supply",
+  "Industrials": "military_escalation",
+  "Materials": "trade_restrictions",
+  "Financials": "monetary_policy",
+  "Health Care": "sanctions",
+  "Consumer Discretionary": "trade_restrictions",
+  "Consumer Staples": "energy_supply",
+  "Communication Services": "political_instability",
+  "Information Technology": "trade_restrictions",
+  "Utilities": "energy_supply",
+  "Real Estate": "monetary_policy",
+  "Commodities": "energy_supply",
+  "Forex": "monetary_policy",
+  "Crypto": "political_instability",
+  "Bonds": "monetary_policy",
+  "Indices": "trade_restrictions",
+  "ETFs": "trade_restrictions",
+};
 
-  const price = priceFor(stock.sector, seed1);
-  const dir = direction(seed2, stock.sector);
+/* ── shared core build ───────────────────────────────────────── */
+function buildCore(
+  symbol: string,
+  name: string,
+  sector: string,
+  subIndustry: string,
+  assetClass: AssetClass,
+  fixedPrice?: number,
+): StockSignal {
+  const seed1 = h32(symbol);
+  const seed2 = h32(symbol + "2");
+  const seed3 = h32(symbol + "3");
+  const seed4 = h32(symbol + "4");
+
+  const price = fixedPrice ?? priceFor(sector, seed1);
+  const dir = direction(seed2, sector);
   const conf = clamp(
     (dir === "HOLD" ? 55 : 66) + seed3 * 28 + (dir === "BUY" ? 2 : dir === "SELL" ? 3 : 0)
   );
   const uncertainty = clamp(100 - conf + (seed4 - 0.5) * 14);
-
-  const vol = volatility(seed2, stock.sector);
+  const vol = volatility(seed2, sector);
   const tf = timeframe(seed3);
-  const trigger = getTrigger(stock.sector, seed4);
 
-  const bullStr = dir === "BUY"
-    ? clamp(50 + seed3 * 45)
-    : dir === "SELL"
-    ? clamp(seed3 * 30)
-    : clamp(30 + seed3 * 25);
-
-  const bearStr = dir === "SELL"
-    ? clamp(50 + seed4 * 45)
-    : dir === "BUY"
-    ? clamp(seed4 * 30)
-    : clamp(30 + seed4 * 25);
-
-  const tags = (SECTOR_TAGS[stock.sector] ?? ["market"]).slice(0, 3);
-  const trade = tradeSetup(price, dir, seed2);
-  const rrLabel = `RR ${trade.riskReward.toFixed(1)}`;
-
-  const geoMap: Record<string, GeoSensitivity> = {
-    "Energy": "energy_supply",
-    "Industrials": "military_escalation",
-    "Materials": "trade_restrictions",
-    "Financials": "monetary_policy",
-    "Health Care": "sanctions",
-    "Consumer Discretionary": "trade_restrictions",
-    "Consumer Staples": "energy_supply",
-    "Communication Services": "political_instability",
-    "Information Technology": "trade_restrictions",
-    "Utilities": "energy_supply",
-    "Real Estate": "monetary_policy",
+  // for non-stock assets, prefer the asset-class specific trigger table
+  const trigSrc =
+    EXTRA_TRIGGERS[assetClass as string] ??
+    SECTOR_TRIGGERS[sector] ??
+    SECTOR_TRIGGERS["Information Technology"];
+  const tidx = Math.floor(seed4 * trigSrc.headlines.length);
+  const trigger: TriggeringEvent = {
+    headline: trigSrc.headlines[tidx],
+    category: trigSrc.geo,
+    severity: clamp(55 + seed4 * 40),
+    timeAgo: `${Math.floor(seed4 * 18) + 1}h ago`,
   };
 
+  const bullStr = dir === "BUY" ? clamp(50 + seed3 * 45) : dir === "SELL" ? clamp(seed3 * 30) : clamp(30 + seed3 * 25);
+  const bearStr = dir === "SELL" ? clamp(50 + seed4 * 45) : dir === "BUY" ? clamp(seed4 * 30) : clamp(30 + seed4 * 25);
+  const trade = tradeSetup(price, dir, seed2);
+
   return {
-    symbol: stock.symbol,
-    name: stock.name,
-    sector: stock.sector,
-    subIndustry: stock.subIndustry,
-    assetClass: "Stocks",
+    symbol,
+    name,
+    sector,
+    subIndustry,
+    assetClass,
     direction: dir,
     confidence: conf,
     uncertainty,
@@ -314,11 +380,20 @@ export function buildSignal(stock: StockConstituent): StockSignal {
     bearStrength: bearStr,
     volatility: vol,
     timeframe: tf,
-    riskLevel: rrLabel,
+    riskLevel: `RR ${trade.riskReward.toFixed(1)}`,
     trigger,
     trade,
-    tags,
-    geoSensitivity: geoMap[stock.sector] ?? "none",
+    tags: (SECTOR_TAGS[sector] ?? ["market"]).slice(0, 3),
+    geoSensitivity: GEO_MAP[sector] ?? GEO_MAP[assetClass] ?? "none",
     updatedAt: "2026-04-23",
   };
+}
+
+/* ── public exports ──────────────────────────────────────────── */
+export function buildSignal(stock: StockConstituent): StockSignal {
+  return buildCore(stock.symbol, stock.name, stock.sector, stock.subIndustry, "Stocks");
+}
+
+export function buildExtraSignal(asset: ExtraAsset): StockSignal {
+  return buildCore(asset.symbol, asset.name, asset.sector, asset.subIndustry, asset.assetClass, asset.typicalPrice);
 }

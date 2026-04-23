@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import constituentsList from "@/data/sp500-constituents.json";
-import { buildSignal } from "@/lib/signal-engine";
-import type { StockSignal } from "@/types/signals";
+import { EXTRA_ASSETS } from "@/data/extra-assets";
+import { buildSignal, buildExtraSignal } from "@/lib/signal-engine";
+import type { StockSignal, AssetClass } from "@/types/signals";
 import type { Direction, GeoSensitivity } from "@/types/signals";
-import { GEO_SENSITIVITY_LABEL, DIRECTION_COLOR } from "@/types/signals";
+import { GEO_SENSITIVITY_LABEL } from "@/types/signals";
 import type { StockConstituent } from "@/types/stocks";
 import { SignalCard } from "./signal-card";
 import { SignalDetailPanel } from "./signal-detail-panel";
@@ -19,12 +20,33 @@ import {
   Activity,
   Zap,
   BarChart3,
+  Layers,
 } from "lucide-react";
 
 const constituents = constituentsList as StockConstituent[];
 
 /* build all signals once (deterministic) */
-const ALL_SIGNALS: StockSignal[] = constituents.map(buildSignal);
+const STOCK_SIGNALS: StockSignal[] = constituents.map(buildSignal);
+// avoid duplicate symbol+assetClass combinations
+const seenKeys = new Set<string>();
+const EXTRA_SIGNALS: StockSignal[] = EXTRA_ASSETS.flatMap((a) => {
+  const key = `${a.symbol}-${a.assetClass}`;
+  if (seenKeys.has(key)) return [];
+  seenKeys.add(key);
+  return [buildExtraSignal(a)];
+});
+const ALL_SIGNALS: StockSignal[] = [...EXTRA_SIGNALS, ...STOCK_SIGNALS];
+
+const ASSET_CLASSES: { id: AssetClass | "All"; label: string; count: number }[] = [
+  { id: "All",         label: "All assets",      count: ALL_SIGNALS.length },
+  { id: "Commodities", label: "Commodities",      count: ALL_SIGNALS.filter(s => s.assetClass === "Commodities").length },
+  { id: "Indices",     label: "Equity Indices",   count: ALL_SIGNALS.filter(s => s.assetClass === "Indices").length },
+  { id: "Forex",       label: "Forex",            count: ALL_SIGNALS.filter(s => s.assetClass === "Forex").length },
+  { id: "Crypto",      label: "Crypto",           count: ALL_SIGNALS.filter(s => s.assetClass === "Crypto").length },
+  { id: "Stocks",      label: "S&P 500 Stocks",   count: STOCK_SIGNALS.length },
+  { id: "ETFs",        label: "ETFs",             count: ALL_SIGNALS.filter(s => s.assetClass === "ETFs").length },
+  { id: "Bonds",       label: "Bonds",            count: ALL_SIGNALS.filter(s => s.assetClass === "Bonds").length },
+];
 
 const ALL_SECTORS = ["All", ...Array.from(new Set(ALL_SIGNALS.map((s) => s.sector))).sort()];
 const GEO_FILTERS: { id: GeoSensitivity | "all"; label: string }[] = [
@@ -38,7 +60,7 @@ const GEO_FILTERS: { id: GeoSensitivity | "all"; label: string }[] = [
 ];
 
 const DIR_STATS = {
-  BUY: ALL_SIGNALS.filter((s) => s.direction === "BUY").length,
+  BUY:  ALL_SIGNALS.filter((s) => s.direction === "BUY").length,
   SELL: ALL_SIGNALS.filter((s) => s.direction === "SELL").length,
   HOLD: ALL_SIGNALS.filter((s) => s.direction === "HOLD").length,
 };
@@ -46,20 +68,22 @@ const DIR_STATS = {
 export function SignalsBrowser() {
   const [query, setQuery] = useState("");
   const [dirFilter, setDirFilter] = useState<Direction | "ALL">("ALL");
+  const [assetFilter, setAssetFilter] = useState<AssetClass | "All">("All");
   const [sectorFilter, setSectorFilter] = useState("All");
   const [geoFilter, setGeoFilter] = useState<GeoSensitivity | "all">("all");
-  const [selected, setSelected] = useState<StockSignal | null>(ALL_SIGNALS[0] ?? null);
+  const [selected, setSelected] = useState<StockSignal | null>(EXTRA_SIGNALS[0] ?? null);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
     return ALL_SIGNALS.filter((s) => {
       if (q && !s.symbol.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q)) return false;
       if (dirFilter !== "ALL" && s.direction !== dirFilter) return false;
+      if (assetFilter !== "All" && s.assetClass !== assetFilter) return false;
       if (sectorFilter !== "All" && s.sector !== sectorFilter) return false;
       if (geoFilter !== "all" && s.geoSensitivity !== geoFilter) return false;
       return true;
     });
-  }, [query, dirFilter, sectorFilter, geoFilter]);
+  }, [query, dirFilter, assetFilter, sectorFilter, geoFilter]);
 
   const dirBtn = (d: Direction | "ALL", icon: React.ReactNode, count?: number) => (
     <button
@@ -86,14 +110,28 @@ export function SignalsBrowser() {
       {/* ── LEFT SIDEBAR ── */}
       <aside className="hidden lg:flex w-52 shrink-0 flex-col border-r border-white/8 bg-slate-950 overflow-y-auto">
         <div className="p-3 border-b border-white/8">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 px-1 mb-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 px-1 mb-1.5">
             Asset class
           </p>
-          <button className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm bg-white/10 text-white font-medium">
-            <BarChart3 className="h-4 w-4 text-amber-400" />
-            S&amp;P 500 Stocks
-            <span className="ml-auto text-xs text-slate-500 font-mono">{ALL_SIGNALS.length}</span>
-          </button>
+          <div className="space-y-0.5">
+            {ASSET_CLASSES.map((ac) => (
+              <button
+                key={ac.id}
+                type="button"
+                onClick={() => { setAssetFilter(ac.id); setSectorFilter("All"); }}
+                className={cn(
+                  "flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm transition",
+                  assetFilter === ac.id
+                    ? "bg-white/10 text-white font-medium"
+                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                )}
+              >
+                {ac.id === "All" ? <Layers className="h-3.5 w-3.5 text-slate-500" /> : <BarChart3 className="h-3.5 w-3.5 text-slate-500" />}
+                <span className="truncate">{ac.label}</span>
+                <span className="ml-auto text-xs text-slate-600 font-mono shrink-0">{ac.count}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="p-3 border-b border-white/8">
@@ -212,7 +250,7 @@ export function SignalsBrowser() {
               ) : (
                 filtered.map((sig) => (
                   <SignalCard
-                    key={sig.symbol}
+                    key={`${sig.symbol}-${sig.assetClass}`}
                     signal={sig}
                     selected={selected?.symbol === sig.symbol}
                     onClick={() => setSelected(sig)}
