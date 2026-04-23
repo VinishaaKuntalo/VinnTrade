@@ -13,18 +13,11 @@ export function SiteFooter() {
             </p>
           </div>
           <div className="flex flex-wrap gap-4 text-xs text-slate-400">
-            <a href="#pulse" className="hover:text-slate-200">
-              MCI
-            </a>
-            <a href="#globe" className="hover:text-slate-200">
-              Map
-            </a>
-            <a href="#how" className="hover:text-slate-200">
-              How we help
-            </a>
-            <Link href="/" className="hover:text-slate-200">
-              Home
-            </Link>
+            <a href="/#pulse" className="hover:text-slate-200">MCI</a>
+            <a href="/#globe" className="hover:text-slate-200">Map</a>
+            <Link href="/stocks" className="hover:text-slate-200">Stocks</Link>
+            <a href="/#how" className="hover:text-slate-200">How we help</a>
+            <Link href="/" className="hover:text-slate-200">Home</Link>
           </div>
         </div>
         <p className="mt-6 max-w-3xl text-[11px] leading-relaxed text-slate-600">

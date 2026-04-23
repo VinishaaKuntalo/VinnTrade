@@ -3,10 +3,11 @@ import { Activity } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const nav = [
-  { href: "#pulse", label: "Market Clarity" },
-  { href: "#globe", label: "Global view" },
-  { href: "#how", label: "How it helps" },
-  { href: "#learn", label: "For investors" },
+  { href: "/#pulse", label: "Market Clarity" },
+  { href: "/#globe", label: "Global view" },
+  { href: "/stocks", label: "Stocks" },
+  { href: "/#how", label: "How it helps" },
+  { href: "/#learn", label: "For investors" },
 ];
 
 export function SiteHeader() {
@@ -28,18 +29,20 @@ export function SiteHeader() {
         </Link>
         <nav className="hidden items-center gap-1 text-sm text-slate-300 md:flex">
           {nav.map((n) => (
-            <a
+            <Link
               key={n.href}
               href={n.href}
               className={cn(
                 "rounded-md px-3 py-1.5 transition",
-                "hover:bg-white/5 hover:text-white"
+                "hover:bg-white/5 hover:text-white",
+                n.href === "/stocks" && "text-amber-200/80 hover:text-amber-100"
               )}
             >
               {n.label}
-            </a>
+            </Link>
           ))}
         </nav>
+
         <a
           href="#access"
           className="shrink-0 rounded-full bg-gradient-to-r from-amber-400/90 to-amber-500/90 px-4 py-2 text-sm font-medium text-slate-950 shadow-lg shadow-amber-500/20 transition hover:from-amber-300 hover:to-amber-400"

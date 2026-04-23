@@ -3,6 +3,7 @@ import { HeroSection } from "@/components/hero-section";
 import { MciSnapshotBar } from "@/components/mci-snapshot-bar";
 import { InvestmentGlobeLoader } from "@/components/investment-globe-loader";
 import { UnderstandingStrip } from "@/components/understanding-strip";
+import { StocksTeaser } from "@/components/stocks-teaser";
 import { HowVinnTradeHelps } from "@/components/how-vinntrade-helps";
 import { ForInvestorsSection } from "@/components/for-investors-section";
 import { CtaSection } from "@/components/cta-section";
@@ -17,6 +18,7 @@ export default function Home() {
         <MciSnapshotBar />
         <InvestmentGlobeLoader />
         <UnderstandingStrip />
+        <StocksTeaser />
         <HowVinnTradeHelps />
         <ForInvestorsSection />
         <CtaSection />
