@@ -5,9 +5,9 @@ import { cn } from "@/lib/cn";
 const nav = [
   { href: "/#pulse", label: "Market Clarity" },
   { href: "/#globe", label: "Global view" },
-  { href: "/stocks", label: "Stocks" },
+  { href: "/signals", label: "Signals" },
+  { href: "/stocks", label: "Risk browser" },
   { href: "/#how", label: "How it helps" },
-  { href: "/#learn", label: "For investors" },
 ];
 
 export function SiteHeader() {
@@ -35,7 +35,7 @@ export function SiteHeader() {
               className={cn(
                 "rounded-md px-3 py-1.5 transition",
                 "hover:bg-white/5 hover:text-white",
-                n.href === "/stocks" && "text-amber-200/80 hover:text-amber-100"
+                n.href === "/signals" && "text-amber-200/80 hover:text-amber-100"
               )}
             >
               {n.label}
