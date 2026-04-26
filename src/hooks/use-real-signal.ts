@@ -13,7 +13,7 @@ type State =
 const clientCache = new Map<string, { data: RealSignal; ts: number }>();
 const CACHE_TTL = 4 * 60 * 60 * 1000;
 /** Abort the fetch if the API hasn't responded within this many ms */
-const FETCH_TIMEOUT_MS = 12_000;
+const FETCH_TIMEOUT_MS = 8_000;
 
 export function useRealSignal(symbol: string | null): State & { retry: () => void } {
   const [state, setState] = useState<State>({ status: "idle" });

@@ -67,17 +67,24 @@ const UA =
 
 /**
  * Stooq returns daily OHLCV as CSV.
- * URL:  https://stooq.com/q/d/l/?s={symbol}&i=d
- * CSV:  Date,Open,High,Low,Close,Volume
- *
- * No API key, no crumb, no session — much more reliable than Yahoo Finance.
+ * We scope to the last 9 months via d1/d2 so the payload is small and fast.
+ * 9 months gives enough bars for EMA-50 (needs ~50), MACD-26, etc.
  */
+function stooqDateRange() {
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const d2 = new Date();
+  const d1 = new Date(d2.getTime() - 270 * 24 * 60 * 60 * 1000);
+  return `&d1=${fmt(d1)}&d2=${fmt(d2)}`;
+}
+
 async function fetchStooqHistory(stooqSymbol: string): Promise<Bar[]> {
-  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSymbol)}&i=d`;
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSymbol)}&i=d${stooqDateRange()}`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": UA, Accept: "text/csv,text/plain,*/*" },
     cache: "no-store",
+    signal: AbortSignal.timeout(8000),
   });
 
   if (!res.ok) throw new Error(`Stooq HTTP ${res.status} for ${stooqSymbol}`);
@@ -92,9 +99,6 @@ async function fetchStooqHistory(stooqSymbol: string): Promise<Bar[]> {
   const lines = text.trim().split("\n");
   if (lines.length < 2) throw new Error(`Empty response from Stooq for ${stooqSymbol}`);
 
-  // Filter to last 6 months
-  const cutoff = Date.now() - 6 * 30 * 24 * 60 * 60 * 1000;
-
   const bars: Bar[] = [];
   for (let i = 1; i < lines.length; i++) {
     const parts = lines[i].split(",");
@@ -103,7 +107,6 @@ async function fetchStooqHistory(stooqSymbol: string): Promise<Bar[]> {
     const date = new Date(dateStr.trim());
     const close = parseFloat(closeStr);
     if (!date || isNaN(date.getTime()) || isNaN(close) || close <= 0) continue;
-    if (date.getTime() < cutoff) continue;
     bars.push({
       date,
       open: parseFloat(openStr) || close,
