@@ -170,6 +170,21 @@ export function InvestmentGlobeSection() {
   const [selected, setSelected] = useState<Hotspot | null>(hotspots[0] ?? null);
   const feedItems = useMemo(() => signalFeed, []);
 
+  const visibleCount = useMemo(() => {
+    if (filter === "all") return hotspots.length;
+    return hotspots.filter((h) => h.category === filter).length;
+  }, [filter]);
+
+  function applyFilter(id: "all" | EventCategory) {
+    setFilter(id);
+    if (id === "all") return;
+    setSelected((prev) => {
+      if (prev?.category === id) return prev;
+      const first = hotspots.find((h) => h.category === id);
+      return first ?? null;
+    });
+  }
+
   return (
     <section id="globe" className="border-b border-white/5 bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
@@ -191,7 +206,7 @@ export function InvestmentGlobeSection() {
             <button
               key={f.id}
               type="button"
-              onClick={() => setFilter(f.id)}
+              onClick={() => applyFilter(f.id)}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-xs font-medium transition",
                 filter === f.id
@@ -209,6 +224,12 @@ export function InvestmentGlobeSection() {
             </button>
           ))}
         </div>
+        {filter !== "all" && (
+          <p className="mt-2 text-xs text-slate-500">
+            {visibleCount} stress point{visibleCount === 1 ? "" : "s"} on the globe for this driver
+            {visibleCount === 0 ? " — try another filter or All drivers." : "."}
+          </p>
+        )}
 
         {/* main grid */}
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]">

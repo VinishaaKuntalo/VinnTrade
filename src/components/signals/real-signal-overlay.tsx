@@ -1,19 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { RealSignal } from "@/app/api/signal/[symbol]/route";
 import type { StockSignal } from "@/types/signals";
 import { DIRECTION_COLOR, VOLATILITY_COLOR, GEO_SENSITIVITY_LABEL } from "@/types/signals";
 import { cn } from "@/lib/cn";
+import { insightFromRealSignal, TradingViewChart } from "@/components/charts/trading-view-chart";
+import { instrumentCurrency } from "@/lib/instrument-currency";
 import {
   TrendingUp, TrendingDown, Activity, Info, Zap, X,
   BarChart2, Brain, Clock, ShieldCheck, RefreshCw,
   AlertTriangle,
 } from "lucide-react";
 
-type Tab = "trade" | "reasoning" | "timeline" | "reliability";
+type Tab = "chart" | "trade" | "reasoning" | "timeline" | "reliability";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: "chart",      label: "CHART",        icon: <BarChart2    className="h-3 w-3" /> },
   { id: "trade",      label: "TRADE SETUP",  icon: <Zap        className="h-3 w-3" /> },
   { id: "reasoning",  label: "AI REASONING", icon: <Brain      className="h-3 w-3" /> },
   { id: "timeline",   label: "TIMELINE",     icon: <Clock      className="h-3 w-3" /> },
@@ -40,6 +44,29 @@ function VoteRow({ label, vote, weight }: { label: string; vote: string; weight:
         <div className={cn("h-1.5 rounded-full", col)} style={{ width: `${(weight / 2.5) * 100}%` }} />
       </div>
       <span className={cn("w-9 shrink-0 text-right text-[11px] font-bold", text)}>{vote}</span>
+    </div>
+  );
+}
+
+/* ── TAB: Chart ── */
+function ChartTab({ real, base }: { real: RealSignal; base: StockSignal }) {
+  return (
+    <div>
+      <TradingViewChart
+        symbol={real.symbol}
+        name={base.name}
+        exchange={base.assetClass}
+        className="min-h-[640px]"
+        signalInsight={insightFromRealSignal(real)}
+        currency={instrumentCurrency(real.symbol)}
+      />
+      <Link
+        href={`/charts/${encodeURIComponent(real.symbol)}`}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+      >
+        <BarChart2 className="h-4 w-4" />
+        Open full chart workspace
+      </Link>
     </div>
   );
 }
@@ -220,7 +247,8 @@ function TimelineTab({ real, base }: { real: RealSignal; base: StockSignal }) {
 
 /* ── TAB: Reliability ── */
 function ReliabilityTab({ real, base }: { real: RealSignal; base: StockSignal }) {
-  const score = Math.round(real.confidence * 0.6 + (100 - real.uncertainty) * 0.4);
+  const skew = Math.abs(real.bullStrength - real.bearStrength);
+  const score = Math.min(100, Math.round(real.confidence * 0.65 + skew * 0.35));
   const rsiColor = real.rsi < 30 ? "text-emerald-300" : real.rsi > 70 ? "text-rose-300" : "text-slate-300";
 
   return (
@@ -255,7 +283,7 @@ function ReliabilityTab({ real, base }: { real: RealSignal; base: StockSignal })
       <div className="grid grid-cols-2 gap-2">
         <DataBox label="Confidence"    value={`${real.confidence}%`}
           accent={real.direction === "BUY" ? "text-emerald-300" : real.direction === "SELL" ? "text-rose-300" : "text-slate-300"} />
-        <DataBox label="Uncertainty"   value={`${real.uncertainty}%`} accent="text-amber-300" />
+        <DataBox label="Bull/Bear skew" value={`${skew}%`} accent="text-amber-300" sub="|bull − bear| from indicator votes" />
         <DataBox label="RSI (14)"      value={real.rsi.toFixed(1)}   accent={rsiColor} sub={real.rsi < 30 ? "Oversold" : real.rsi > 70 ? "Overbought" : "Neutral"} />
         <DataBox label="MACD Hist."    value={real.macdHistogram.toFixed(4)}
           accent={real.macdHistogram > 0 ? "text-emerald-300" : "text-rose-300"} />
@@ -286,7 +314,7 @@ export function RealSignalOverlay({
   base: StockSignal;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("trade");
+  const [tab, setTab] = useState<Tab>("chart");
   const dir = real.direction;
   const dc = DIRECTION_COLOR[dir];
   const vc = VOLATILITY_COLOR[base.volatility];
@@ -327,8 +355,10 @@ export function RealSignalOverlay({
               {real.confidence}%
             </p>
             <p className="mt-0.5 text-[10px] text-slate-500">confidence</p>
-            <p className="mt-1 text-sm font-semibold text-amber-300 tabular-nums">{real.uncertainty}%</p>
-            <p className="text-[10px] text-slate-600">uncertainty</p>
+            <p className="mt-1 text-sm font-semibold text-amber-300 tabular-nums">
+              {Math.abs(real.bullStrength - real.bearStrength)}%
+            </p>
+            <p className="text-[10px] text-slate-600">bull/bear skew</p>
             <button onClick={onClose}
               className="mt-2 rounded-lg p-1 text-slate-500 hover:bg-white/8 hover:text-white transition"
               aria-label="Close">
@@ -410,6 +440,7 @@ export function RealSignalOverlay({
 
       {/* ── TAB CONTENT ── */}
       <div className="flex-1 overflow-y-auto p-4">
+        {tab === "chart"       && <ChartTab       real={real} base={base} />}
         {tab === "trade"       && <TradeTab       real={real} />}
         {tab === "reasoning"   && <ReasoningTab   real={real} base={base} />}
         {tab === "timeline"    && <TimelineTab    real={real} base={base} />}

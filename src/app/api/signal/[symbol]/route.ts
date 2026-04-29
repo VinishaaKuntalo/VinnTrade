@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scoreTechnicals } from "@/lib/technical-analysis";
-import { fetchCandles, isSupportedSymbol, daysAgoSecs, nowSecs } from "@/lib/finnhub";
+import { buildFallbackCandles, fetchCandles, fetchStooqCandles, fetchYahooCandles, daysAgoSecs, nowSecs } from "@/lib/finnhub";
 
 /* ── In-process cache (4 h) ─────────────────────────────── */
 const CACHE_TTL = 4 * 60 * 60 * 1000;
@@ -12,7 +12,6 @@ export interface RealSignal {
   currentPrice: number;
   direction: "BUY" | "SELL" | "HOLD";
   confidence: number;
-  uncertainty: number;
   bullStrength: number;
   bearStrength: number;
   rsi: number;
@@ -22,6 +21,14 @@ export interface RealSignal {
   atr: number;
   momentumRoc: number;
   indicatorVotes: { label: string; vote: string; weight: number }[];
+  // Extended indicators
+  rs: number;
+  alphaScore: number;
+  betaScore: number;
+  gammaScore: number;
+  thetaScore: number;
+  stochK: number;
+  wR: number;
   trade: {
     currentPrice: number;
     entry: number;
@@ -38,32 +45,57 @@ export interface RealSignal {
 
 /* ── In-flight deduplication ─────────────────────────────── */
 interface Bar { open: number; high: number; low: number; close: number; volume: number; }
-const inFlight = new Map<string, Promise<Bar[]>>();
+const inFlight = new Map<string, Promise<{ bars: Bar[]; source: string }>>();
 
-function fetchWithDedup(symbol: string): Promise<Bar[]> {
-  const existing = inFlight.get(symbol);
+function fetchWithDedup(symbol: string, anchorPrice?: number): Promise<{ bars: Bar[]; source: string }> {
+  const dedupeKey = `${symbol}:${anchorPrice ?? ""}`;
+  const existing = inFlight.get(dedupeKey);
   if (existing) return existing;
-  const promise = fetchBars(symbol).finally(() => inFlight.delete(symbol));
-  inFlight.set(symbol, promise);
+  const promise = fetchBars(symbol, anchorPrice).finally(() => inFlight.delete(dedupeKey));
+  inFlight.set(dedupeKey, promise);
   return promise;
 }
 
-async function fetchBars(symbol: string): Promise<Bar[]> {
-  const from = daysAgoSecs(270); // 9 months — enough for EMA-50, MACD-26, etc.
-  const to   = nowSecs();
-  const candles = await fetchCandles(symbol, from, to);
-
-  if (candles.s !== "ok" || !candles.t?.length) {
-    throw new Error(`No candle data from Finnhub for ${symbol}`);
+async function fetchBars(symbol: string, anchorPrice?: number): Promise<{ bars: Bar[]; source: string }> {
+  // Try Finnhub first; fall back to Stooq
+  try {
+    const from = daysAgoSecs(270);
+    const to   = nowSecs();
+    const candles = await fetchCandles(symbol, from, to);
+    if (candles.s !== "ok" || !candles.t?.length) throw new Error("no_data");
+    return {
+      bars: candles.t.map((_, i) => ({
+        open: candles.o[i], high: candles.h[i],
+        low: candles.l[i], close: candles.c[i], volume: candles.v[i],
+      })),
+      source: "Finnhub",
+    };
+  } catch {
+    try {
+      const stooq = await fetchStooqCandles(symbol, 270);
+      return {
+        bars: stooq.map((b) => ({
+          open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume,
+        })),
+        source: "Stooq",
+      };
+    } catch {
+      let yahoo;
+      let source = "Yahoo Finance";
+      try {
+        yahoo = await fetchYahooCandles(symbol, 270);
+      } catch {
+        yahoo = buildFallbackCandles(symbol, 270, anchorPrice);
+        source = anchorPrice ? "Fallback model (anchored to live quote)" : "Fallback model";
+      }
+      return {
+        bars: yahoo.map((b) => ({
+          open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume,
+        })),
+        source,
+      };
+    }
   }
-
-  return candles.t.map((_, i) => ({
-    open:   candles.o[i],
-    high:   candles.h[i],
-    low:    candles.l[i],
-    close:  candles.c[i],
-    volume: candles.v[i],
-  }));
 }
 
 /* ── ATR-based trade setup ───────────────────────────────── */
@@ -105,8 +137,8 @@ function buildTrade(price: number, atrVal: number, dir: "BUY" | "SELL" | "HOLD")
 }
 
 /* ── Main fetch + score ──────────────────────────────────── */
-async function fetchAndScore(symbol: string): Promise<RealSignal> {
-  const bars = await fetchWithDedup(symbol);
+async function fetchAndScore(symbol: string, anchorPrice?: number): Promise<RealSignal> {
+  const { bars, source } = await fetchWithDedup(symbol, anchorPrice);
 
   if (bars.length < 30) {
     throw new Error(`Only ${bars.length} bars for ${symbol} — need ≥ 30`);
@@ -122,35 +154,45 @@ async function fetchAndScore(symbol: string): Promise<RealSignal> {
 
   return {
     symbol,
-    dataSource: `Finnhub · ${bars.length} bars`,
-    currentPrice: tech.currentPrice,
-    direction:    tech.direction,
-    confidence:   tech.confidence,
-    uncertainty:  tech.uncertainty,
-    bullStrength: tech.bullStrength,
-    bearStrength: tech.bearStrength,
-    rsi:          tech.rsiValue,
+    dataSource:    `${source} · ${bars.length} bars`,
+    currentPrice:  tech.currentPrice,
+    direction:     tech.direction,
+    confidence:    tech.confidence,
+    bullStrength:  tech.bullStrength,
+    bearStrength:  tech.bearStrength,
+    rsi:           tech.rsiValue,
     macdHistogram: tech.macdHistogram,
-    ema20:        tech.ema20,
-    ema50:        tech.ema50,
-    atr:          tech.atrValue,
-    momentumRoc:  tech.momentumRoc,
+    ema20:         tech.ema20,
+    ema50:         tech.ema50,
+    atr:           tech.atrValue,
+    momentumRoc:   tech.momentumRoc,
     indicatorVotes: tech.indicatorVotes,
+    rs:            tech.rs,
+    alphaScore:    tech.alphaScore,
+    betaScore:     tech.betaScore,
+    gammaScore:    tech.gammaScore,
+    thetaScore:    tech.thetaScore,
+    stochK:        tech.stochK,
+    wR:            tech.wR,
     trade,
-    dataPoints:   bars.length,
-    fetchedAt:    new Date().toISOString(),
+    dataPoints:    bars.length,
+    fetchedAt:     new Date().toISOString(),
   };
 }
 
 /* ── Route handler ───────────────────────────────────────── */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ symbol: string }> }
 ) {
   const { symbol } = await params;
   const upper = symbol.toUpperCase();
+  const anchorParam = Number(req.nextUrl.searchParams.get("anchor") ?? "");
+  const anchorPrice =
+    Number.isFinite(anchorParam) && anchorParam > 0 ? anchorParam : undefined;
+  const cacheKey = `${upper}:${anchorPrice ?? "none"}`;
 
-  const cached = cache.get(upper);
+  const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
     return NextResponse.json(cached.data, {
       headers: {
@@ -161,16 +203,9 @@ export async function GET(
     });
   }
 
-  if (!isSupportedSymbol(upper)) {
-    return NextResponse.json(
-      { symbol: upper, error: "Symbol not supported", fetchedAt: new Date().toISOString() },
-      { status: 400 }
-    );
-  }
-
   try {
-    const data = await fetchAndScore(upper);
-    cache.set(upper, { data, ts: Date.now() });
+    const data = await fetchAndScore(upper, anchorPrice);
+    cache.set(cacheKey, { data, ts: Date.now() });
     return NextResponse.json(data, {
       headers: { "X-Cache": "MISS", "Cache-Control": "public, max-age=14400" },
     });

@@ -36,7 +36,6 @@ export interface StockSignal {
   assetClass: AssetClass;
   direction: Direction;
   confidence: number;      // 0–100
-  uncertainty: number;     // 0–100
   bullStrength: number;    // 0–100
   bearStrength: number;    // 0–100
   volatility: Volatility;

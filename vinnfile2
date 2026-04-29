@@ -1,0 +1,33 @@
+Here’s what changed:
+
+1. Removed uncertainty everywhere
+TechnicalSignal, /api/signal/[symbol] (RealSignal), StockSignal, and signal-engine no longer define or return it.
+UI: dropped uncertainty labels; chart strip now says confidence comes from weighted indicator agreement.
+Reliability score (demo + live panels) is now
+min(100, round(confidence × 0.65 + |bullStrength − bearStrength| × 0.35)).
+Secondary header stat is bull/bear skew (|bull − bear| from the same vote engine).
+2. Extended indicators now vote
+In scoreTechnicals, these are added to the same BUY/SELL/HOLD vote list (with weights):
+
+RS(252d) — 1.8
+Alpha(63d) — 1.5
+Beta(ATR) — 1.0 (high vol → slight SELL lean; low vol → slight BUY)
+Gamma(RSIΔ) — 1.2
+Theta(trend) — 1.3 (persistent trend vs EMA20)
+Stoch %K — 1.5
+Williams %R — 1.5
+Existing voters (RSI, MACD, EMA20/50, price/EMA20, ROC) and the volume boost are unchanged.
+
+3. Confidence is deterministic
+No randomness. After volume scaling:
+
+BUY: margin = (buyScore − sellScore) / (buyScore + sellScore)
+SELL: margin = (sellScore − buyScore) / total
+HOLD: margin = 1 − 2 × min(buy,sell) / total (larger when buy/sell are close)
+Then:
+
+confidence = round(50 + 45 × clamp(margin, 0, 1)), clamped to 50–95.
+
+So confidence rises when the weighted vote margin is large and sits near 50 when the model is conflicted (especially on HOLD).
+
+indicatorVotes in the API now includes all of the above labels, so the overlay “Drivers” list matches what drives direction and confidence.

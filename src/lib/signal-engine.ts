@@ -346,7 +346,6 @@ function buildCore(
   const conf = clamp(
     (dir === "HOLD" ? 55 : 66) + seed3 * 28 + (dir === "BUY" ? 2 : dir === "SELL" ? 3 : 0)
   );
-  const uncertainty = clamp(100 - conf + (seed4 - 0.5) * 14);
   const vol = volatility(seed2, sector);
   const tf = timeframe(seed3);
 
@@ -375,7 +374,6 @@ function buildCore(
     assetClass,
     direction: dir,
     confidence: conf,
-    uncertainty,
     bullStrength: bullStr,
     bearStrength: bearStr,
     volatility: vol,

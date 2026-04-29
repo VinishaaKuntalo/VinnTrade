@@ -137,6 +137,36 @@ export const hotspots: Hotspot[] = [
     watchTickers: ["EWJ", "USDJPY", "TLT", "GLD"],
   },
   {
+    id: "us-fed-path",
+    name: "US Fed & rates path",
+    region: "Americas",
+    lat: 40.71,
+    lng: -74.01,
+    localRisk: 62,
+    category: "monetary",
+    shortSummary:
+      "FOMC guidance and Treasury issuance shape the global risk-free rate, USD liquidity, and equity duration premia.",
+    investTakeaway:
+      "Higher-for-longer shifts hurt long-duration growth and real estate; steepening helps banks. Watch dot plots, RRP usage, and IG spread dispersion.",
+    sectors: ["Financials", "Real Estate", "Information Technology"],
+    watchTickers: ["TLT", "SHY", "XLF", "IEF"],
+  },
+  {
+    id: "uk-boe",
+    name: "Bank of England",
+    region: "Europe",
+    lat: 51.51,
+    lng: -0.09,
+    localRisk: 54,
+    category: "monetary",
+    shortSummary:
+      "UK inflation persistence and gilt-market stress episodes spill into GBP, European credit, and global rate volatility.",
+    investTakeaway:
+      "Pension LDI and mortgage pass-through amplify BOE surprises. FX-hedged UK exposure and sterling crosses often move first.",
+    sectors: ["Financials", "Real Estate", "Utilities"],
+    watchTickers: ["EWU", "FXB", "GBPUSD", "VGK"],
+  },
+  {
     id: "india-growth",
     name: "India infrastructure build",
     region: "South Asia",
