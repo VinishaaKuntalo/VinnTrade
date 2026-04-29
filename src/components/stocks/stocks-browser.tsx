@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import constituentsList from "@/data/sp500-constituents.json";
 import { buildRiskProfile } from "@/lib/risk-engine";
 import type { StockRiskProfile } from "@/types/stocks";
 import type { StockConstituent } from "@/types/stocks";
 import { RISK_BAND_LABEL, RISK_BAND_COLOR } from "@/types/stocks";
-import { RiskDetailPanel } from "./risk-detail-panel";
 import { RiskBadge } from "./risk-badge";
 import { RiskScoreBar } from "./risk-score-bar";
 import { cn } from "@/lib/cn";
@@ -26,13 +26,13 @@ type SortDir = "asc" | "desc";
 const PAGE_SIZE = 30;
 
 export function StocksBrowser() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [bandFilter, setBandFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("overallScore");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<StockRiskProfile | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
   const handleSort = useCallback(
@@ -82,29 +82,35 @@ export function StocksBrowser() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6">
       {/* summary strip */}
-      <div className="mb-6 flex flex-wrap gap-3">
-        {ALL_BANDS.map((b) => (
-          <button
-            key={b}
-            type="button"
-            onClick={() => { setBandFilter(bandFilter === b ? "all" : b); setPage(1); }}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
-              bandFilter === b
-                ? "border-white/20 bg-white/10 text-white"
-                : "border-white/10 text-slate-400 hover:border-white/20 hover:text-white"
-            )}
-          >
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ background: RISK_BAND_COLOR[b] }}
-            />
-            {RISK_BAND_LABEL[b]}
-            <span className="ml-0.5 font-mono opacity-60">{stats[b]}</span>
-          </button>
-        ))}
+      <div className="mb-6 space-y-2">
+        <div className="flex flex-wrap gap-3">
+          {ALL_BANDS.map((b) => (
+            <button
+              key={b}
+              type="button"
+              onClick={() => { setBandFilter(bandFilter === b ? "all" : b); setPage(1); }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                bandFilter === b
+                  ? "border-white/20 bg-white/10 text-white"
+                  : "border-white/10 text-slate-400 hover:border-white/20 hover:text-white"
+              )}
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: RISK_BAND_COLOR[b] }}
+              />
+              {RISK_BAND_LABEL[b]}
+              <span className="ml-0.5 font-mono opacity-60">{stats[b]}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] leading-relaxed text-slate-500">
+          Bands follow the overall 0–100 score: Low below 30; Moderate 30–44; Elevated 45–59; High 60–74; Critical 75+.
+          Open a stock’s Risk tab for how that score is built.
+        </p>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -234,11 +240,9 @@ export function StocksBrowser() {
                         key={p.symbol}
                         className={cn(
                           "border-b border-white/5 cursor-pointer transition",
-                          selected?.symbol === p.symbol
-                            ? "bg-cyan-500/10"
-                            : "hover:bg-white/5"
+                          "hover:bg-white/5"
                         )}
-                        onClick={() => setSelected(selected?.symbol === p.symbol ? null : p)}
+                        onClick={() => router.push(`/charts/${encodeURIComponent(p.symbol)}`)}
                       >
                         <td className="px-4 py-3 font-mono font-semibold text-white text-sm">
                           {p.symbol}
@@ -307,15 +311,6 @@ export function StocksBrowser() {
           )}
         </div>
 
-        {/* ── detail panel ── */}
-        {selected && (
-          <div className="w-full lg:w-[360px] shrink-0 sticky top-20 max-h-[calc(100vh-96px)]">
-            <RiskDetailPanel
-              profile={selected}
-              onClose={() => setSelected(null)}
-            />
-          </div>
-        )}
       </div>
     </div>
   );

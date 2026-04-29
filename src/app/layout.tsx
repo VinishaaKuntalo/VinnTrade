@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,11 +14,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: "VinnTrade — Geopolitical clarity for investors",
   description:
     "VinnTrade links cross-border events to the channels that move markets—rates, energy, policy, and supply chains—so you can invest with context, not confusion.",
+  alternates: { canonical: "/" },
   openGraph: {
+    type: "website",
     title: "VinnTrade",
+    url: "/",
     description:
       "A clarity-first map and research companion for long-term capital.",
   },

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { BatchQuoteResponse, QuoteResult } from "@/app/api/quotes/route";
+import { instrumentCurrency } from "@/lib/instrument-currency";
 
 export type QuoteState =
   | { status: "stale"; data: QuoteResult }   // showing static seed price while live loads
@@ -27,6 +28,7 @@ function seedResult(symbol: string, price: number, change: number): QuoteResult 
     change,
     fetchedAt: "",
     source: "unavailable",
+    currency: instrumentCurrency(symbol),
   };
 }
 

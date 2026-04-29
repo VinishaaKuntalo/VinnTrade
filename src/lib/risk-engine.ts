@@ -4,6 +4,7 @@
  * Nothing here is live market data or financial advice.
  */
 import type { RiskBand, RiskFactor, StockRiskProfile, StockConstituent } from "@/types/stocks";
+import { RISK_BAND_LABEL } from "@/types/stocks";
 
 /* ── helpers ──────────────────────────────────────────────────── */
 
@@ -155,13 +156,24 @@ function buildFactors(stock: StockConstituent, seed: number): RiskFactor[] {
 
 /* ── band & geo label ─────────────────────────────────────────── */
 
-function band(score: number): RiskBand {
+/** Maps overall risk score (0–100) to display band — single source of truth for labels in the UI. */
+export function scoreToRiskBand(score: number): RiskBand {
   if (score < 30) return "low";
   if (score < 45) return "moderate";
   if (score < 60) return "elevated";
   if (score < 75) return "high";
   return "critical";
 }
+
+/** Plain-language explanation of why this numeric score maps to its band (thresholds match `scoreToRiskBand`). */
+export function describeWhyRiskBand(score: number, band: RiskBand): string {
+  const label = RISK_BAND_LABEL[band];
+  return `Overall score is ${score} out of 100. This model uses fixed cutoffs on that scale: Low below 30; Moderate 30–44; Elevated 45–59; High 60–74; Critical 75 and above. Your score falls in the ${label} band.`;
+}
+
+/** How the overall number is built (shown next to the score). */
+export const RISK_OVERALL_SCORE_EXPLAINER =
+  "We average five factor scores (supply-chain concentration, geopolitical & regulatory exposure, macro & rate sensitivity, earnings volatility, ESG & environmental regulation). Then we add a small geography adjustment from headquarters and a tiny deterministic tweak from the ticker so similar names are not identical. All of this is illustrative — not live market data or advice.";
 
 function geoExposure(hq: string): string {
   const h = hq.toLowerCase();
@@ -221,7 +233,7 @@ export function buildRiskProfile(stock: StockConstituent): StockRiskProfile {
     subIndustry: stock.subIndustry,
     hq: stock.hq,
     overallScore: overall,
-    band: band(overall),
+    band: scoreToRiskBand(overall),
     factors,
     geoExposure: geoExposure(stock.hq),
     investorAngle:

@@ -12,6 +12,7 @@ const nav = [
   { href: "/geo-map", label: "Geo Map" },
   { href: "/signals", label: "Signals" },
   { href: "/stocks", label: "Risk browser" },
+  { href: "/portfolio", label: "Portfolio" },
   { href: "/#how", label: "How it helps" },
 ];
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import constituentsList from "@/data/sp500-constituents.json";
 import { EXTRA_ASSETS } from "@/data/extra-assets";
 import { buildSignal, buildExtraSignal } from "@/lib/signal-engine";
@@ -23,7 +24,10 @@ import {
   Zap,
   BarChart3,
   Layers,
+  LayoutGrid,
+  Table2,
 } from "lucide-react";
+import { TerminalView } from "./terminal-view";
 
 const constituents = constituentsList as StockConstituent[];
 
@@ -78,13 +82,21 @@ function RealPanel({ selected, onClose }: { selected: StockSignal; onClose: () =
   return <RealSignalOverlay real={state.data} base={selected} onClose={onClose} />;
 }
 
+type ViewMode = "cards" | "terminal";
+
 export function SignalsBrowser() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [dirFilter, setDirFilter] = useState<Direction | "ALL">("ALL");
   const [assetFilter, setAssetFilter] = useState<AssetClass | "All">("All");
   const [sectorFilter, setSectorFilter] = useState("All");
   const [geoFilter, setGeoFilter] = useState<GeoSensitivity | "all">("all");
   const [selected, setSelected] = useState<StockSignal | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+
+  const openChart = (signal: StockSignal) => {
+    router.push(`/charts/${encodeURIComponent(signal.symbol)}`);
+  };
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -242,7 +254,7 @@ export function SignalsBrowser() {
         </div>
       </aside>
 
-      {/* ── CARD LIST ── */}
+      {/* ── MAIN CONTENT ── */}
       <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
         {/* toolbar */}
         <div className="flex items-center gap-3 border-b border-white/8 bg-slate-950/80 px-4 py-3 backdrop-blur">
@@ -284,50 +296,97 @@ export function SignalsBrowser() {
               </button>
             )}
           </div>
+
           <p className="shrink-0 text-xs text-slate-500">{filtered.length} signals</p>
+
+          {/* View toggle */}
+          <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-white/10 bg-slate-900 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              title="Card view"
+              className={cn(
+                "rounded-md p-1.5 transition",
+                viewMode === "cards" ? "bg-white/10 text-white" : "text-slate-500 hover:text-white"
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("terminal")}
+              title="Terminal view — α β γ θ RS and more"
+              className={cn(
+                "rounded-md p-1.5 transition",
+                viewMode === "terminal" ? "bg-amber-400/15 text-amber-400" : "text-slate-500 hover:text-white"
+              )}
+            >
+              <Table2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
-        {/* cards + detail panel */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* card scroll */}
-          <div className="w-full lg:w-[340px] xl:w-[380px] shrink-0 overflow-y-auto border-r border-white/8 bg-slate-950/50">
-            <div className="space-y-2 p-3">
-              {filtered.length === 0 ? (
-                <div className="py-16 text-center text-sm text-slate-500">
-                  No signals match your filters.
-                </div>
-              ) : (
-                filtered.map((sig) => (
-                  <SignalCard
-                    key={`${sig.symbol}-${sig.assetClass}`}
-                    signal={sig}
-                    selected={selected?.symbol === sig.symbol}
-                    onClick={() => setSelected(sig)}
-                  />
-                ))
-              )}
+        {/* ── TERMINAL VIEW ── */}
+        {viewMode === "terminal" ? (
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            <div className={cn("flex flex-col min-h-0 overflow-hidden transition-all", selected ? "flex-1" : "w-full")}>
+              <TerminalView
+                signals={filtered}
+                selected={selected}
+                onSelect={openChart}
+              />
             </div>
-          </div>
-
-          {/* detail panel — real market data */}
-          <div className="hidden lg:flex flex-1 overflow-hidden p-4">
-            {selected ? (
-              <div className="w-full max-w-lg mx-auto h-full">
-                <RealPanel selected={selected} onClose={() => setSelected(null)} />
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                <Zap className="h-8 w-8 text-slate-700" />
-                <p className="text-sm text-slate-500">
-                  Select a signal to fetch real data from Yahoo Finance
-                </p>
-                <p className="text-xs text-slate-600 max-w-xs">
-                  RSI · MACD · EMA crossover · ATR · momentum — computed from live historical OHLCV
-                </p>
+            {selected && (
+              <div className="hidden lg:flex w-[760px] max-w-[60vw] shrink-0 border-l border-white/8 overflow-hidden">
+                <div className="w-full h-full">
+                  <RealPanel selected={selected} onClose={() => setSelected(null)} />
+                </div>
               </div>
             )}
           </div>
-        </div>
+        ) : (
+          /* ── CARD VIEW ── */
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            {/* card scroll */}
+            <div className="w-full lg:w-[340px] xl:w-[380px] shrink-0 overflow-y-auto border-r border-white/8 bg-slate-950/50">
+              <div className="space-y-2 p-3">
+                {filtered.length === 0 ? (
+                  <div className="py-16 text-center text-sm text-slate-500">
+                    No signals match your filters.
+                  </div>
+                ) : (
+                  filtered.map((sig) => (
+                    <SignalCard
+                      key={`${sig.symbol}-${sig.assetClass}`}
+                      signal={sig}
+                      selected={selected?.symbol === sig.symbol}
+                      onClick={() => openChart(sig)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* detail panel — real market data */}
+            <div className="hidden lg:flex flex-1 overflow-hidden p-4">
+              {selected ? (
+                <div className="w-full max-w-5xl mx-auto h-full">
+                  <RealPanel selected={selected} onClose={() => setSelected(null)} />
+                </div>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                  <Zap className="h-8 w-8 text-slate-700" />
+                  <p className="text-sm text-slate-500">
+                    Select a signal to fetch real market data
+                  </p>
+                  <p className="text-xs text-slate-600 max-w-xs">
+                    RSI · MACD · EMA crossover · ATR · momentum — computed from live historical OHLCV
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       </div>
     </div>

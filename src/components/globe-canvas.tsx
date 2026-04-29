@@ -132,7 +132,9 @@ export function GlobeCanvas({
         drag to rotate · scroll to zoom
       </div>
 
+      {/* Remount when filter changes so point layers don't leave stale markers (react-globe.gl). */}
       <Globe
+        key={filter}
         ref={globeRef}
         width={dim.w}
         height={dim.h}

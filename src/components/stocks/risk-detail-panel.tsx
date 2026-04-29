@@ -1,8 +1,17 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
 import type { StockRiskProfile } from "@/types/stocks";
 import { RISK_BAND_COLOR, RISK_BAND_LABEL } from "@/types/stocks";
+import { describeWhyRiskBand, RISK_OVERALL_SCORE_EXPLAINER, scoreToRiskBand } from "@/lib/risk-engine";
 import { RiskScoreBar } from "./risk-score-bar";
 import { RiskBadge } from "./risk-badge";
-import { MapPin, TrendingUp, Info, X } from "lucide-react";
+import { TradingViewChart } from "@/components/charts/trading-view-chart";
+import { instrumentCurrency } from "@/lib/instrument-currency";
+import { BarChart2, MapPin, ShieldAlert, TrendingUp, Info, X } from "lucide-react";
+
+type DetailTab = "chart" | "risk";
 
 export function RiskDetailPanel({
   profile,
@@ -12,6 +21,7 @@ export function RiskDetailPanel({
   onClose: () => void;
 }) {
   const color = RISK_BAND_COLOR[profile.band];
+  const [tab, setTab] = useState<DetailTab>("chart");
 
   return (
     <div className="flex flex-col h-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900">
@@ -37,7 +47,56 @@ export function RiskDetailPanel({
         </button>
       </div>
 
+      <div className="grid grid-cols-2 border-b border-white/8">
+        <button
+          type="button"
+          onClick={() => setTab("chart")}
+          className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition ${
+            tab === "chart"
+              ? "border-b-2 border-cyan-400 text-cyan-300"
+              : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <BarChart2 className="h-3 w-3" />
+          Chart
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("risk")}
+          className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition ${
+            tab === "risk"
+              ? "border-b-2 border-orange-400 text-orange-300"
+              : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <ShieldAlert className="h-3 w-3" />
+          Risk
+        </button>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        {tab === "chart" && (
+          <div>
+            <TradingViewChart
+              symbol={profile.symbol}
+              name={profile.name}
+              exchange="S&P 500"
+              className="min-h-[640px]"
+              loadSignalInsight
+              currency={instrumentCurrency(profile.symbol)}
+            />
+            <Link
+              href={`/charts/${encodeURIComponent(profile.symbol)}`}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+            >
+              <BarChart2 className="h-4 w-4" />
+              Open full chart workspace
+            </Link>
+          </div>
+        )}
+
+        {tab === "risk" && (
+          <>
         {/* overall score */}
         <div className="rounded-xl bg-slate-950/60 border border-white/5 p-4">
           <div className="flex items-baseline justify-between mb-2">
@@ -53,8 +112,14 @@ export function RiskDetailPanel({
             </span>
           </div>
           <RiskScoreBar score={profile.overallScore} band={profile.band} size="lg" />
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-slate-400 leading-relaxed">
             {RISK_BAND_LABEL[profile.band]} risk band — structured model, not a trading signal.
+          </p>
+          <p className="mt-2 text-xs text-slate-300 leading-relaxed">
+            {describeWhyRiskBand(profile.overallScore, profile.band)}
+          </p>
+          <p className="mt-2 text-[11px] text-slate-500 leading-relaxed border-t border-white/5 pt-2">
+            {RISK_OVERALL_SCORE_EXPLAINER}
           </p>
         </div>
 
@@ -70,7 +135,7 @@ export function RiskDetailPanel({
                   <span className="text-xs font-medium text-slate-200">{f.label}</span>
                   <span className="text-xs tabular-nums text-slate-400 font-mono">{f.score}</span>
                 </div>
-                <RiskScoreBar score={f.score} band={profile.band} size="sm" />
+                <RiskScoreBar score={f.score} band={scoreToRiskBand(f.score)} size="sm" />
                 <p className="mt-1.5 text-[11px] text-slate-500 leading-relaxed">{f.note}</p>
               </div>
             ))}
@@ -109,6 +174,8 @@ export function RiskDetailPanel({
             Updated: {profile.updatedAt}.
           </p>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

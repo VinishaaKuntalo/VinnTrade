@@ -92,7 +92,7 @@ function buildReasoning(signal: StockSignal) {
       `Bull/Bear ratio (${signal.bullStrength}% / ${signal.bearStrength}%) ${signal.bullStrength > signal.bearStrength ? "favours buyers" : signal.bearStrength > signal.bullStrength ? "favours sellers" : "is balanced"}, consistent with the ${signal.direction} signal.`,
     ],
     risks: [
-      `${signal.uncertainty}% uncertainty band — size positions accordingly and treat this as a framework, not a price target.`,
+      `Confidence is ${signal.confidence}% on this demo signal — size positions defensively and treat this as a framework, not a price target.`,
       `Geo-political triggers (${geoLabel}) can reverse quickly on diplomatic developments or policy announcements.`,
       `This is a deterministic educational model seeded from sector/sub-industry data — not derived from real-time price feeds.`,
     ],
@@ -273,10 +273,11 @@ function TimelineTab({ signal }: { signal: StockSignal }) {
 }
 
 function ReliabilityTab({ signal }: { signal: StockSignal }) {
-  const score = Math.round((signal.confidence * 0.6 + (100 - signal.uncertainty) * 0.4));
+  const skew = Math.abs(signal.bullStrength - signal.bearStrength);
+  const score = Math.min(100, Math.round(signal.confidence * 0.65 + skew * 0.35));
   const metrics = [
     { label: "Model confidence",  value: signal.confidence,              color: "bg-emerald-500" },
-    { label: "Certainty",         value: 100 - signal.uncertainty,       color: "bg-cyan-500" },
+    { label: "Bull/Bear skew",    value: skew,                           color: "bg-cyan-500" },
     { label: "Bullish signals",   value: signal.bullStrength,             color: "bg-emerald-500" },
     { label: "Bearish signals",   value: signal.bearStrength,             color: "bg-rose-500" },
   ];
@@ -402,9 +403,9 @@ export function SignalDetailPanel({
             </p>
             <p className="mt-0.5 text-[10px] text-slate-500">confidence</p>
             <p className="mt-1 text-sm font-semibold text-amber-300 tabular-nums">
-              {signal.uncertainty}%
+              {Math.abs(signal.bullStrength - signal.bearStrength)}%
             </p>
-            <p className="text-[10px] text-slate-600">uncertainty</p>
+            <p className="text-[10px] text-slate-600">bull/bear skew</p>
             <button
               onClick={onClose}
               className="mt-2 rounded-lg p-1 text-slate-500 hover:bg-white/8 hover:text-white transition"

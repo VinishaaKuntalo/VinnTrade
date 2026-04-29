@@ -17,6 +17,7 @@ export function SiteFooter() {
             <a href="/#globe" className="hover:text-slate-200">Map</a>
             <Link href="/signals" className="hover:text-slate-200">Signals</Link>
             <Link href="/stocks" className="hover:text-slate-200">Risk browser</Link>
+            <Link href="/portfolio" className="hover:text-slate-200">Portfolio</Link>
             <a href="/#how" className="hover:text-slate-200">How we help</a>
             <Link href="/" className="hover:text-slate-200">Home</Link>
           </div>
