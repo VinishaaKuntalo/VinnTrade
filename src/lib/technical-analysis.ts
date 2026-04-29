@@ -103,6 +103,99 @@ export function atr(
   return val;
 }
 
+/* ── RSI series (full array, for charting) ─────────────── */
+export function rsiSeries(closes: number[], period = 14): number[] {
+  if (closes.length < period + 1) return closes.map(() => 50);
+  const result: number[] = new Array(period).fill(50);
+  const changes = closes.slice(1).map((c, i) => c - closes[i]);
+  const gains = changes.map((c) => (c > 0 ? c : 0));
+  const losses = changes.map((c) => (c < 0 ? -c : 0));
+
+  let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  const rs0 = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  result.push(rs0);
+
+  for (let i = period; i < changes.length; i++) {
+    avgGain = (avgGain * (period - 1) + gains[i]) / period;
+    avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+    result.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+  }
+  return result;
+}
+
+/* ── MACD series (full arrays, for charting) ───────────── */
+export interface MACDSeries {
+  macd: number[];
+  signal: number[];
+  histogram: number[];
+  offset: number; // how many leading bars are empty (NaN)
+}
+
+export function macdSeries(
+  closes: number[],
+  fast = 12,
+  slow = 26,
+  signalPeriod = 9
+): MACDSeries {
+  const ema12 = ema(closes, fast);
+  const ema26 = ema(closes, slow);
+  const offset = slow - 1; // ema26 starts at index (slow-1)
+
+  const macdLine: number[] = [];
+  for (let i = 0; i < ema26.length; i++) {
+    macdLine.push(ema12[i + (fast - 1 === 0 ? 0 : fast - slow + slow - fast)] - ema26[i]);
+  }
+  // Simpler alignment: ema12 length = closes.length - (fast-1), ema26 length = closes.length - (slow-1)
+  // Recompute cleanly
+  const m: number[] = [];
+  const e12 = ema(closes, fast);    // length = closes.length - fast + 1
+  const e26 = ema(closes, slow);    // length = closes.length - slow + 1
+  const diff = fast - slow; // negative, e.g. 12-26=-14
+  // e26 starts slow-1 bars in, e12 starts fast-1 bars in
+  // align: e26[i] corresponds to e12[i - diff] = e12[i + (slow-fast)]
+  for (let i = 0; i < e26.length; i++) {
+    m.push(e12[i + (slow - fast)] - e26[i]);
+  }
+  const sig = ema(m, signalPeriod);
+  const histOffset = slow - 1 + signalPeriod - 1;
+  const hist = sig.map((s, i) => m[i + (signalPeriod - 1)] - s);
+
+  return {
+    macd: m,
+    signal: sig,
+    histogram: hist,
+    offset: histOffset,
+  };
+}
+
+/* ── Bollinger Bands series ────────────────────────────── */
+export interface BollingerPoint {
+  upper: number;
+  middle: number;
+  lower: number;
+}
+
+export function bollingerSeries(
+  closes: number[],
+  period = 20,
+  stdDevMult = 2
+): BollingerPoint[] {
+  const result: BollingerPoint[] = [];
+  for (let i = period - 1; i < closes.length; i++) {
+    const slice = closes.slice(i - period + 1, i + 1);
+    const mean = slice.reduce((a, b) => a + b, 0) / period;
+    const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / period;
+    const std = Math.sqrt(variance);
+    result.push({
+      upper: mean + stdDevMult * std,
+      middle: mean,
+      lower: mean - stdDevMult * std,
+    });
+  }
+  return result;
+}
+
 /* ── Momentum (Rate of Change) ─────────────────────────── */
 export function roc(closes: number[], period = 14): number {
   if (closes.length < period + 1) return 0;

@@ -23,6 +23,10 @@ export interface Hotspot {
   category: EventCategory;
   shortSummary: string;
   investTakeaway: string;
+  /** Sectors most directly exposed to this hotspot */
+  sectors: string[];
+  /** Representative asset tickers to watch */
+  watchTickers: string[];
 }
 
 export interface FlowArc {

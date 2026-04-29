@@ -72,7 +72,7 @@ function RealPanel({ selected, onClose }: { selected: StockSignal; onClose: () =
   if (state.status === "idle" || state.status === "loading")
     return <RealSignalSkeleton symbol={selected.symbol} onClose={onClose} />;
   if (state.status === "rate_limited")
-    return <RealSignalRateLimited symbol={selected.symbol} retryAfter={state.retryAfter} onClose={onClose} />;
+    return <RealSignalRateLimited symbol={selected.symbol} countdown={state.countdown} onRetry={state.retry} onClose={onClose} />;
   if (state.status === "error")
     return <RealSignalError symbol={selected.symbol} message={state.message} onClose={onClose} />;
   return <RealSignalOverlay real={state.data} base={selected} onClose={onClose} />;
@@ -84,7 +84,7 @@ export function SignalsBrowser() {
   const [assetFilter, setAssetFilter] = useState<AssetClass | "All">("All");
   const [sectorFilter, setSectorFilter] = useState("All");
   const [geoFilter, setGeoFilter] = useState<GeoSensitivity | "all">("all");
-  const [selected, setSelected] = useState<StockSignal | null>(EXTRA_SIGNALS[0] ?? null);
+  const [selected, setSelected] = useState<StockSignal | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -118,8 +118,44 @@ export function SignalsBrowser() {
     </button>
   );
 
+  /* Global Tension Index — average trigger severity across all signals */
+  const GTI = Math.round(
+    ALL_SIGNALS.reduce((s, sig) => s + sig.trigger.severity, 0) / ALL_SIGNALS.length
+  );
+  const gtiLabel =
+    GTI > 80 ? "CRITICAL" : GTI > 65 ? "ELEVATED" : GTI > 45 ? "MODERATE" : "LOW";
+  const gtiColor =
+    GTI > 80 ? "text-rose-400 border-rose-500/40 bg-rose-500/10"
+    : GTI > 65 ? "text-amber-300 border-amber-500/40 bg-amber-500/10"
+    : GTI > 45 ? "text-yellow-300 border-yellow-500/40 bg-yellow-500/10"
+    : "text-emerald-300 border-emerald-500/40 bg-emerald-500/10";
+
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
+
+      {/* ── GTI STATUS BAR ── */}
+      <div className="flex shrink-0 items-center gap-4 border-b border-white/6 bg-slate-950/90 px-4 py-2 backdrop-blur">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+            Global Tension Index
+          </span>
+          <span className="font-mono text-lg font-bold text-white tabular-nums">{GTI}</span>
+          <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold tracking-wider ${gtiColor}`}>
+            {gtiLabel}
+          </span>
+        </div>
+        <div className="ml-auto flex items-center gap-3 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            LIVE · demo feeds
+          </span>
+          <span className="font-mono tabular-nums">
+            {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* ── LEFT SIDEBAR ── */}
       <aside className="hidden lg:flex w-52 shrink-0 flex-col border-r border-white/8 bg-slate-950 overflow-y-auto">
         <div className="p-3 border-b border-white/8">
@@ -292,6 +328,7 @@ export function SignalsBrowser() {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

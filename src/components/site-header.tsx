@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 const nav = [
   { href: "/#pulse", label: "Market Clarity" },
   { href: "/#globe", label: "Global view" },
+  { href: "/geo-map", label: "Geo Map" },
   { href: "/signals", label: "Signals" },
   { href: "/stocks", label: "Risk browser" },
   { href: "/#how", label: "How it helps" },
@@ -52,7 +53,9 @@ export function SiteHeader() {
                   ? "bg-white/8 text-white"
                   : "hover:bg-white/5 hover:text-white",
                 n.href === "/signals" && !isActive(n.href) && "text-amber-200/80 hover:text-amber-100",
-                n.href === "/signals" && isActive(n.href) && "bg-amber-500/10 text-amber-100"
+                n.href === "/signals" && isActive(n.href) && "bg-amber-500/10 text-amber-100",
+                n.href === "/geo-map" && !isActive(n.href) && "text-cyan-300/80 hover:text-cyan-200",
+                n.href === "/geo-map" && isActive(n.href) && "bg-cyan-500/10 text-cyan-200"
               )}
             >
               {n.label}
@@ -101,7 +104,9 @@ export function SiteHeader() {
                     ? "bg-white/8 text-white font-medium"
                     : "text-slate-300 hover:bg-white/5 hover:text-white",
                   n.href === "/signals" && !isActive(n.href) && "text-amber-200/80",
-                  n.href === "/signals" && isActive(n.href) && "bg-amber-500/10 text-amber-100"
+                  n.href === "/signals" && isActive(n.href) && "bg-amber-500/10 text-amber-100",
+                  n.href === "/geo-map" && !isActive(n.href) && "text-cyan-300/80",
+                  n.href === "/geo-map" && isActive(n.href) && "bg-cyan-500/10 text-cyan-200"
                 )}
               >
                 {n.label}

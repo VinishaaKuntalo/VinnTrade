@@ -1,5 +1,5 @@
+import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { SignalsBrowserLoader } from "@/components/signals/signals-browser-loader";
 import type { Metadata } from "next";
 
@@ -37,7 +37,14 @@ export default function SignalsPage() {
         <SignalsBrowserLoader />
       </main>
 
-      <SiteFooter />
+      {/* Floating waitlist button */}
+      <Link
+        href="/#access"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-xl shadow-amber-500/25 transition hover:from-amber-300 hover:to-amber-400 hover:shadow-amber-400/30"
+      >
+        <span className="h-2 w-2 rounded-full bg-slate-950/40" />
+        Join waitlist
+      </Link>
     </div>
   );
 }
