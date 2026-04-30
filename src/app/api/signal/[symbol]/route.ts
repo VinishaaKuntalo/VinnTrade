@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { signalRouteCacheMs } from "@/lib/api-cache-config";
 import { scoreTechnicals } from "@/lib/technical-analysis";
 import { buildFallbackCandles, fetchCandles, fetchStooqCandles, fetchYahooCandles, daysAgoSecs, nowSecs } from "@/lib/finnhub";
 
-/* ── In-process cache (4 h) ─────────────────────────────── */
-const CACHE_TTL = 4 * 60 * 60 * 1000;
+const CACHE_TTL = signalRouteCacheMs;
 const cache = new Map<string, { data: RealSignal; ts: number }>();
 
 export interface RealSignal {
@@ -11,6 +11,7 @@ export interface RealSignal {
   dataSource: string;
   currentPrice: number;
   direction: "BUY" | "SELL" | "HOLD";
+  /** Uncertainty-adjusted rule agreement (chart path); not win probability */
   confidence: number;
   bullStrength: number;
   bearStrength: number;
@@ -191,6 +192,8 @@ export async function GET(
   const anchorPrice =
     Number.isFinite(anchorParam) && anchorParam > 0 ? anchorParam : undefined;
   const cacheKey = `${upper}:${anchorPrice ?? "none"}`;
+  const maxAge = Math.max(1, Math.floor(CACHE_TTL / 1000));
+  const cc = `public, max-age=${maxAge}, stale-while-revalidate=${maxAge}`;
 
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
@@ -198,7 +201,7 @@ export async function GET(
       headers: {
         "X-Cache": "HIT",
         "X-Cached-At": new Date(cached.ts).toISOString(),
-        "Cache-Control": "public, max-age=14400",
+        "Cache-Control": cc,
       },
     });
   }
@@ -207,7 +210,7 @@ export async function GET(
     const data = await fetchAndScore(upper, anchorPrice);
     cache.set(cacheKey, { data, ts: Date.now() });
     return NextResponse.json(data, {
-      headers: { "X-Cache": "MISS", "Cache-Control": "public, max-age=14400" },
+      headers: { "X-Cache": "MISS", "Cache-Control": cc },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -23,7 +23,6 @@ import {
   X,
   TrendingUp,
   TrendingDown,
-  Plus,
   ArrowRight,
   Globe,
   ShieldAlert,
@@ -794,7 +793,6 @@ export function GeoMapView() {
                   const name: string = geo.properties?.name ?? "";
                   const country = findCountryMarket(name);
                   const isSelected = selectedCountry?.name === country?.name;
-                  const isHovered = hoveredGeo === name;
 
                   return (
                     <Geography

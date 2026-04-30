@@ -147,7 +147,7 @@ function SignalInsightStrip({
             Signal insight
           </span>
           <span className={cn("text-xs", dark ? "text-slate-400" : "text-slate-600")}>
-            Confidence {conf}% (from weighted indicator agreement)
+            Score {conf}% · trend/vol/conflict-adjusted (not historical win rate)
           </span>
         </div>
         {insight.dataSource && (
@@ -254,6 +254,19 @@ function buildChart(
       borderColor: border,
       timeVisible: true,
       secondsVisible: false,
+    },
+    /** Explicit defaults — wheel zoom / drag scroll often feel broken if panes fight each other */
+    handleScroll: {
+      mouseWheel: true,
+      pressedMouseMove: true,
+      horzTouchDrag: true,
+      vertTouchDrag: true,
+    },
+    handleScale: {
+      mouseWheel: true,
+      pinch: true,
+      axisPressedMouseMove: true,
+      axisDoubleClickReset: true,
     },
   };
 
@@ -585,12 +598,18 @@ function buildChart(
   }
 
   const charts: IChartApi[] = [chart, macdChart, oscChart, obvChart].filter(Boolean) as IChartApi[];
+  let syncingTimeRange = false;
   for (const c of charts) {
     c.timeScale().fitContent();
     c.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (!range) return;
-      for (const other of charts) {
-        if (other !== c) other.timeScale().setVisibleLogicalRange(range);
+      if (!range || syncingTimeRange) return;
+      syncingTimeRange = true;
+      try {
+        for (const other of charts) {
+          if (other !== c) other.timeScale().setVisibleLogicalRange(range);
+        }
+      } finally {
+        syncingTimeRange = false;
       }
     });
   }
@@ -632,9 +651,40 @@ interface Props {
   loadSignalInsight?: boolean;
   /** ISO-like code for price labels (USD, CAD, JPY, …). Defaults from symbol rules. */
   currency?: string;
+  /**
+   * Refetch OHLCV on this interval (ms). `0` = only when symbol / range / anchor changes.
+   * Default `NEXT_PUBLIC_CHART_REFRESH_MS` or 90s.
+   */
+  chartRefreshMs?: number;
+  /**
+   * Refetch signal insight on this interval when `loadSignalInsight` is true.
+   * `0` = only when inputs change. Default `NEXT_PUBLIC_SIGNAL_INSIGHT_REFRESH_MS`, then `NEXT_PUBLIC_SIGNAL_REFRESH_MS`, or 45s.
+   */
+  signalRefreshMs?: number;
 }
 
 const DEFAULT_INDICATORS: ChartIndicator[] = ["volume", "ema20", "ema50", "rsi"];
+
+function resolvedChartRefreshMs(prop?: number): number {
+  if (prop === 0) return 0;
+  if (prop != null && prop > 0) return prop;
+  const n = Number(process.env.NEXT_PUBLIC_CHART_REFRESH_MS ?? "");
+  if (n === 0) return 0;
+  if (Number.isFinite(n) && n > 0) return n;
+  return 90_000;
+}
+
+function resolvedSignalInsightRefreshMs(prop?: number): number {
+  if (prop === 0) return 0;
+  if (prop != null && prop > 0) return prop;
+  const insightEnv = Number(process.env.NEXT_PUBLIC_SIGNAL_INSIGHT_REFRESH_MS ?? "");
+  if (Number.isFinite(insightEnv) && insightEnv > 0) return insightEnv;
+  const sigEnv = Number(process.env.NEXT_PUBLIC_SIGNAL_REFRESH_MS ?? "");
+  if (sigEnv === 0) return 0;
+  if (Number.isFinite(sigEnv) && sigEnv > 0) return sigEnv;
+  return 45_000;
+}
+
 const INDICATOR_OPTIONS: { id: ChartIndicator; label: string }[] = [
   { id: "volume", label: "Volume" },
   { id: "obv", label: "OBV" },
@@ -667,6 +717,8 @@ export function TradingViewChart({
   signalInsight: signalInsightProp,
   loadSignalInsight = false,
   currency: currencyProp,
+  chartRefreshMs: chartRefreshMsProp,
+  signalRefreshMs: signalRefreshMsProp,
 }: Props) {
   const priceRef = useRef<HTMLDivElement | null>(null);
   const macdRef = useRef<HTMLDivElement | null>(null);
@@ -700,6 +752,34 @@ export function TradingViewChart({
 
   /** Single primitive key avoids dev/HMR "dependency array changed size" when optional deps appear later. */
   const chartFetchKey = `${symbol}:${rangeDays}:${anchorPrice ?? ""}`;
+  const signalFetchKey = `${symbol}:${loadSignalInsight ? 1 : 0}:${signalInsightProp !== undefined ? 1 : 0}:${anchorPrice ?? ""}`;
+
+  const chartPollInterval = resolvedChartRefreshMs(chartRefreshMsProp);
+  const signalPollInterval = resolvedSignalInsightRefreshMs(signalRefreshMsProp);
+  const chartPollParamsRef = useRef({ symbol, rangeDays, anchorPrice });
+  chartPollParamsRef.current = { symbol, rangeDays, anchorPrice };
+  const signalPollParamsRef = useRef({ symbol, anchorPrice });
+  signalPollParamsRef.current = { symbol, anchorPrice };
+
+  useEffect(() => {
+    if (!chartPollInterval) return;
+    const id = setInterval(() => {
+      const { symbol: sym, rangeDays: d, anchorPrice: ap } = chartPollParamsRef.current;
+      const qs = new URLSearchParams({ days: String(d) });
+      if (ap && ap > 0) qs.set("anchor", String(ap));
+      fetch(`/api/chart/${encodeURIComponent(sym)}?${qs.toString()}`)
+        .then(async (r) => {
+          const json = await r.json() as ChartResponse;
+          if (!r.ok || !json.bars?.length) return;
+          setData(json);
+          setStatus("ready");
+        })
+        .catch(() => {});
+    }, chartPollInterval);
+    return () => clearInterval(id);
+  }, [chartPollInterval]);
+
+  /* Primary OHLCV load (symbol / range / anchor change) */
   useEffect(() => {
     const controller = new AbortController();
     setStatus("loading");
@@ -719,9 +799,9 @@ export function TradingViewChart({
         setStatus("error");
       });
     return () => controller.abort();
-  }, [chartFetchKey]);
+  }, [chartFetchKey, symbol, rangeDays, anchorPrice]);
 
-  const signalFetchKey = `${symbol}:${loadSignalInsight ? 1 : 0}:${signalInsightProp !== undefined ? 1 : 0}:${anchorPrice ?? ""}`;
+  /* Primary signal insight */
   useEffect(() => {
     if (!loadSignalInsight || signalInsightProp !== undefined) {
       setFetchedInsight(null);
@@ -751,7 +831,25 @@ export function TradingViewChart({
         if (!ac.signal.aborted) setInsightLoading(false);
       });
     return () => ac.abort();
-  }, [signalFetchKey]);
+  }, [signalFetchKey, symbol, anchorPrice, loadSignalInsight, signalInsightProp]);
+
+  useEffect(() => {
+    if (!loadSignalInsight || signalInsightProp !== undefined || !signalPollInterval) return;
+    const id = setInterval(() => {
+      const { symbol: sym, anchorPrice: ap } = signalPollParamsRef.current;
+      const sigQs = new URLSearchParams();
+      if (ap && ap > 0) sigQs.set("anchor", String(ap));
+      const sigUrl = `/api/signal/${encodeURIComponent(sym)}${sigQs.toString() ? `?${sigQs}` : ""}`;
+      fetch(sigUrl)
+        .then(async (r) => {
+          const json = (await r.json()) as RealSignal & { error?: string };
+          if (!r.ok || json.error) return;
+          setFetchedInsight(insightFromRealSignal(json));
+        })
+        .catch(() => {});
+    }, signalPollInterval);
+    return () => clearInterval(id);
+  }, [signalPollInterval, loadSignalInsight, signalInsightProp]);
 
   useEffect(() => {
     if (status !== "ready" || !data?.bars?.length || !priceRef.current) return;
@@ -901,7 +999,10 @@ export function TradingViewChart({
       )}
 
       <div className={cn(status === "ready" ? "block" : "hidden")}>
-        <div ref={priceRef} className={priceHeightClassName} />
+        <div
+          ref={priceRef}
+          className={cn(priceHeightClassName, "overscroll-contain")}
+        />
         {activeIndicators.includes("macd") && (
           <>
             <div

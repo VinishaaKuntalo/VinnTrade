@@ -65,10 +65,11 @@ export function CtaSection() {
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
                     <div>
                       <p className="text-sm font-medium text-emerald-200">
-                        You're on the list.
+                        You&apos;re on the list.
                       </p>
                       <p className="text-xs text-emerald-300/60">
-                        We'll be in touch within a few days — personally, not via a drip sequence.
+                        We&apos;ll be in touch within a few days — personally,
+                        not via a drip sequence.
                       </p>
                     </div>
                   </div>
@@ -120,8 +121,8 @@ export function CtaSection() {
               )}
 
               <p className="mt-3 text-xs text-amber-100/50">
-                No spam, no "hot stock" lists. This is a product research list,
-                not a marketing funnel masquerading as research.
+                No spam, no &quot;hot stock&quot; lists. This is a product research
+                list, not a marketing funnel masquerading as research.
               </p>
             </div>
 

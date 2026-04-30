@@ -1,9 +1,10 @@
+import { memo } from "react";
 import type { StockSignal } from "@/types/signals";
 import { DIRECTION_COLOR, VOLATILITY_COLOR } from "@/types/signals";
 import { cn } from "@/lib/cn";
 import { Zap } from "lucide-react";
 
-export function SignalCard({
+function SignalCardInner({
   signal,
   selected,
   onClick,
@@ -18,6 +19,7 @@ export function SignalCard({
     <button
       type="button"
       onClick={onClick}
+      style={{ contentVisibility: "auto", containIntrinsicSize: "118px auto" }}
       className={cn(
         "w-full text-left rounded-xl border transition-all",
         selected
@@ -71,7 +73,7 @@ export function SignalCard({
             >
               {signal.confidence}%
             </p>
-            <p className="text-[9px] text-slate-600 mt-0.5">confidence</p>
+            <p className="text-[9px] text-slate-600 mt-0.5">demo agreement</p>
           </div>
         </div>
 
@@ -132,3 +134,10 @@ export function SignalCard({
     </button>
   );
 }
+
+/** Parent passes fresh onClick closures — compare row identity instead. */
+export const SignalCard = memo(
+  SignalCardInner,
+  (prev, next) =>
+    prev.signal === next.signal && prev.selected === next.selected
+);

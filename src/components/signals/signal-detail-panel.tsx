@@ -82,17 +82,17 @@ function buildReasoning(signal: StockSignal) {
       ? "bearish"
       : "neutral";
   const geoLabel = GEO_SENSITIVITY_LABEL[signal.geoSensitivity];
-  const highConf = signal.confidence > 75;
+  const highConf = signal.confidence > 62;
 
   return {
-    thesis: `${signal.symbol} presents a ${dirWord} setup driven by ${geoLabel.toLowerCase()} pressures within the ${signal.sector} sector. The model assigns ${signal.confidence}% confidence — a ${highConf ? "high-conviction" : "moderate"} reading.`,
+    thesis: `${signal.symbol} presents a ${dirWord} setup driven by ${geoLabel.toLowerCase()} pressures within the ${signal.sector} sector. The demo assigns ${signal.confidence}% agreement (${highConf ? "upper band for this illustrative model" : "typical for this illustrative model"}) — not from live price rules.`,
     points: [
       `The triggering event (${signal.trigger.headline}) scores ${signal.trigger.severity}/100 on severity — ${signal.trigger.severity > 70 ? "a significant catalyst warranting close attention" : "a moderate catalyst that merits monitoring"}.`,
       `${signal.sector} sector dynamics lean ${signal.direction === "BUY" ? "constructive" : signal.direction === "SELL" ? "defensive" : "neutral"} in the current macro regime, supported by the ${geoLabel.toLowerCase()} channel.`,
       `Bull/Bear ratio (${signal.bullStrength}% / ${signal.bearStrength}%) ${signal.bullStrength > signal.bearStrength ? "favours buyers" : signal.bearStrength > signal.bullStrength ? "favours sellers" : "is balanced"}, consistent with the ${signal.direction} signal.`,
     ],
     risks: [
-      `Confidence is ${signal.confidence}% on this demo signal — size positions defensively and treat this as a framework, not a price target.`,
+      `Agreement score is ${signal.confidence}% on this demo signal — size defensively; treat as narrative scaffolding, not statistics.`,
       `Geo-political triggers (${geoLabel}) can reverse quickly on diplomatic developments or policy announcements.`,
       `This is a deterministic educational model seeded from sector/sub-industry data — not derived from real-time price feeds.`,
     ],
@@ -219,7 +219,7 @@ function TimelineTab({ signal }: { signal: StockSignal }) {
     {
       time: `${Math.max(1, hoursAgo - 1)}h ago`,
       label: "Signal generated",
-      detail: `Model assigned ${signal.confidence}% confidence — ${signal.direction}`,
+      detail: `Demo agreement ${signal.confidence}% — ${signal.direction}`,
       color: signal.direction === "BUY" ? "bg-emerald-400" : signal.direction === "SELL" ? "bg-rose-400" : "bg-slate-400",
       textColor: signal.direction === "BUY" ? "text-emerald-300" : signal.direction === "SELL" ? "text-rose-300" : "text-slate-300",
     },
@@ -276,7 +276,7 @@ function ReliabilityTab({ signal }: { signal: StockSignal }) {
   const skew = Math.abs(signal.bullStrength - signal.bearStrength);
   const score = Math.min(100, Math.round(signal.confidence * 0.65 + skew * 0.35));
   const metrics = [
-    { label: "Model confidence",  value: signal.confidence,              color: "bg-emerald-500" },
+    { label: "Demo agreement",  value: signal.confidence,              color: "bg-emerald-500" },
     { label: "Bull/Bear skew",    value: skew,                           color: "bg-cyan-500" },
     { label: "Bullish signals",   value: signal.bullStrength,             color: "bg-emerald-500" },
     { label: "Bearish signals",   value: signal.bearStrength,             color: "bg-rose-500" },
@@ -303,7 +303,7 @@ function ReliabilityTab({ signal }: { signal: StockSignal }) {
         <div>
           <p className="text-xs font-semibold text-slate-200">Reliability score</p>
           <p className="text-[11px] text-slate-400">
-            Composite of confidence, certainty, and signal strength
+            Composite of demo agreement, skew, and narrative strength
           </p>
           <p className={cn(
             "mt-1 text-[10px] font-bold uppercase tracking-wider",
@@ -401,7 +401,7 @@ export function SignalDetailPanel({
             >
               {signal.confidence}%
             </p>
-            <p className="mt-0.5 text-[10px] text-slate-500">confidence</p>
+            <p className="mt-0.5 text-[10px] text-slate-500">demo agreement score</p>
             <p className="mt-1 text-sm font-semibold text-amber-300 tabular-nums">
               {Math.abs(signal.bullStrength - signal.bearStrength)}%
             </p>

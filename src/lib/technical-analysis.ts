@@ -138,22 +138,10 @@ export function macdSeries(
   slow = 26,
   signalPeriod = 9
 ): MACDSeries {
-  const ema12 = ema(closes, fast);
-  const ema26 = ema(closes, slow);
-  const offset = slow - 1; // ema26 starts at index (slow-1)
-
-  const macdLine: number[] = [];
-  for (let i = 0; i < ema26.length; i++) {
-    macdLine.push(ema12[i + (fast - 1 === 0 ? 0 : fast - slow + slow - fast)] - ema26[i]);
-  }
-  // Simpler alignment: ema12 length = closes.length - (fast-1), ema26 length = closes.length - (slow-1)
-  // Recompute cleanly
   const m: number[] = [];
-  const e12 = ema(closes, fast);    // length = closes.length - fast + 1
-  const e26 = ema(closes, slow);    // length = closes.length - slow + 1
-  const diff = fast - slow; // negative, e.g. 12-26=-14
-  // e26 starts slow-1 bars in, e12 starts fast-1 bars in
-  // align: e26[i] corresponds to e12[i - diff] = e12[i + (slow-fast)]
+  const e12 = ema(closes, fast); // length = closes.length - fast + 1
+  const e26 = ema(closes, slow); // length = closes.length - slow + 1
+  // align: e26[i] aligns with e12[i + (slow - fast)]
   for (let i = 0; i < e26.length; i++) {
     m.push(e12[i + (slow - fast)] - e26[i]);
   }
@@ -447,10 +435,53 @@ export function theta(closes: number[]): number {
   return Math.round(Math.min(100, (streak / 20) * 100));
 }
 
+/**
+ * Maps raw vote margin into a conservative score, then discounts for weak trends (ADX),
+ * conflicting indicators, elevated ATR%, and limited history. This is **not** a calibrated
+ * probability of profit — only an internal “how loud vs how messy” read from the same rules.
+ */
+function uncertaintyAdjustedConfidence(opts: {
+  direction: "BUY" | "SELL" | "HOLD";
+  margin: number;
+  buyScore: number;
+  sellScore: number;
+  adx: number;
+  atrPct: number;
+  barCount: number;
+}): number {
+  const { direction, margin, buyScore, sellScore, adx, atrPct, barCount } = opts;
+  const m = Math.min(1, Math.max(0, margin));
+
+  // Compressed curve: needs very strong margin to reach the high 70s / low 80s
+  let score = 36 + 46 * Math.pow(m, 0.72);
+
+  // Directional reads are unreliable in chop (low ADX); HOLD is left less penalised here
+  if (direction !== "HOLD") {
+    const trendReliability = Math.min(1, Math.max(0.22, (adx - 16) / 26));
+    score *= 0.52 + 0.48 * trendReliability;
+  }
+
+  const win = Math.max(buyScore, sellScore);
+  const lose = Math.min(buyScore, sellScore);
+  const clash = win > 1e-9 ? lose / win : 0;
+  score *= 1 - 0.26 * Math.min(1, clash);
+
+  if (atrPct >= 3.8) score *= 0.94;
+  if (atrPct >= 6.5) score *= 0.91;
+
+  if (barCount < 130) score *= 0.94;
+  if (barCount < 80) score *= 0.92;
+
+  return Math.round(Math.min(84, Math.max(22, score)));
+}
+
 /* ── Signal scoring ────────────────────────────────────── */
 export interface TechnicalSignal {
   direction: "BUY" | "SELL" | "HOLD";
-  /** 50–95: higher when the winning side dominates per weighted indicator votes */
+  /**
+   * Uncertainty-adjusted agreement among weighted rules (see `uncertaintyAdjustedConfidence`).
+   * Not a historical win rate or P(profit).
+   */
   confidence: number;
   rsiValue: number;
   macdHistogram: number;
@@ -496,6 +527,8 @@ export function scoreTechnicals(
   const thetaVal  = theta(closes);
   const stochKVal = stochasticK(highs, lows, closes, 14);
   const wRVal     = williamsR(highs, lows, closes, 14);
+  const adxArr    = adxSeries(highs, lows, closes, 14);
+  const adxLast   = adxArr.at(-1) ?? 20;
 
   const ema20Val  = ema20Arr.at(-1) ?? price;
   const ema50Val  = ema50Arr.at(-1) ?? price;
@@ -686,7 +719,17 @@ export function scoreTechnicals(
   } else {
     margin = 1 - (2 * Math.min(buyScore, sellScore)) / total;
   }
-  const confidence = Math.round(50 + 45 * Math.min(1, Math.max(0, margin)));
+
+  const atrPct = price > 0 ? (atrVal / price) * 100 : 2;
+  const confidence = uncertaintyAdjustedConfidence({
+    direction,
+    margin,
+    buyScore,
+    sellScore,
+    adx: adxLast,
+    atrPct,
+    barCount: closes.length,
+  });
 
   const bullStrength = Math.round(
     votes.filter(v => v.vote === "BUY").reduce((a, v) => a + v.weight * v.strength, 0) /
@@ -699,7 +742,7 @@ export function scoreTechnicals(
 
   return {
     direction,
-    confidence:    Math.min(95, Math.max(50, confidence)),
+    confidence,
     rsiValue:      Math.round(rsiVal * 10) / 10,
     macdHistogram: macdRes ? Math.round(macdRes.histogram * 10000) / 10000 : 0,
     ema20:         Math.round(ema20Val * 100) / 100,
