@@ -35,7 +35,7 @@ export interface StockSignal {
   subIndustry: string;
   assetClass: AssetClass;
   direction: Direction;
-  confidence: number;      // 0–100
+  confidence: number; // 0–100; demo signals use a narrow illustrative band; live chart scores are uncertainty-adjusted
   bullStrength: number;    // 0–100
   bearStrength: number;    // 0–100
   volatility: Volatility;

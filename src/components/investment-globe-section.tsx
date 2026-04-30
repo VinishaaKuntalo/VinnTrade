@@ -1,14 +1,35 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { flowArcs, hotspots, signalFeed } from "@/data/hotspots";
 import type { EventCategory, Hotspot } from "@/types/vinntrade";
 import { EVENT_CATEGORY_LABEL } from "@/types/vinntrade";
-import { GlobeCanvas } from "@/components/globe-canvas";
 import { categoryHex } from "@/lib/globe-theme";
 import { ArrowRight, Radio } from "lucide-react";
 import { cn } from "@/lib/cn";
+
+const GlobeCanvas = dynamic(
+  () =>
+    import("@/components/globe-canvas").then((m) => ({
+      default: m.GlobeCanvas,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="relative flex h-[min(62vh,560px)] w-full min-h-[300px] items-center justify-center bg-gradient-to-b from-slate-900 to-slate-950"
+        aria-hidden
+      >
+        <div className="flex flex-col items-center gap-3 px-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-500/30 border-t-cyan-400" />
+          <p className="text-center text-xs text-slate-500">Loading 3D globe…</p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 const LEVEL_STYLE = {
   elevated: "bg-rose-500/15 text-rose-300 border border-rose-500/30",

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { chartRouteCacheMs } from "@/lib/api-cache-config";
 import { buildFallbackCandles, fetchCandles, fetchStooqCandles, fetchYahooCandles, daysAgoSecs, nowSecs } from "@/lib/finnhub";
 
 export interface OhlcvBar {
@@ -18,8 +19,7 @@ export interface ChartResponse {
   error?: string;
 }
 
-/* ── 4-hour server cache ── */
-const CACHE_TTL = 4 * 60 * 60 * 1000;
+const CACHE_TTL = chartRouteCacheMs;
 const cache = new Map<string, { data: ChartResponse; ts: number }>();
 
 export async function GET(
@@ -35,8 +35,10 @@ export async function GET(
   const cacheKey = `${upper}:${days}:${anchorPrice ?? "none"}`;
 
   const hit = cache.get(cacheKey);
+  const maxAge = Math.max(1, Math.floor(CACHE_TTL / 1000));
+  const cc = `public, max-age=${maxAge}, stale-while-revalidate=${maxAge}`;
   if (hit && Date.now() - hit.ts < CACHE_TTL) {
-    return NextResponse.json(hit.data, { headers: { "X-Cache": "HIT" } });
+    return NextResponse.json(hit.data, { headers: { "X-Cache": "HIT", "Cache-Control": cc } });
   }
 
   let bars: OhlcvBar[] = [];
@@ -77,6 +79,9 @@ export async function GET(
   };
   cache.set(cacheKey, { data: result, ts: Date.now() });
   return NextResponse.json(result, {
-    headers: { "Cache-Control": "public, max-age=14400", "X-Cache": "MISS" },
+    headers: {
+      "Cache-Control": cc,
+      "X-Cache": "MISS",
+    },
   });
 }

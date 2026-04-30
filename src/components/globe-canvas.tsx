@@ -6,10 +6,9 @@ import type { EventCategory, FlowArc, Hotspot } from "@/types/vinntrade";
 import { categoryHex, riskToPointRadius } from "@/lib/globe-theme";
 import { cn } from "@/lib/cn";
 
-const EARTH_URL =
-  "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
-const BUMP_URL =
-  "https://unpkg.com/three-globe/example/img/earth-topology.png";
+/** Same-origin so WebGL image loads don’t depend on CDN reachability/CORS quirks. */
+const EARTH_URL = "/globe/earth-blue-marble.jpg";
+const BUMP_URL = "/globe/earth-topology.png";
 
 type Filter = "all" | EventCategory;
 

@@ -215,7 +215,6 @@ const INVESTOR_ANGLES: Record<string, string> = {
 
 export function buildRiskProfile(stock: StockConstituent): StockRiskProfile {
   const seed = seedHash(stock.symbol);
-  const base = SECTOR_BASELINE[stock.sector] ?? 50;
   const sub = SUB_OVERLAY[stock.subIndustry] ?? 0;
   const geo = geoScore(stock.hq);
   const factors = buildFactors(stock, seed);

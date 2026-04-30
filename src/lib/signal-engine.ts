@@ -244,7 +244,7 @@ function tradeSetup(price: number, dir: Direction, seed: number) {
   const atrPct = 0.012 + seed * 0.025; // 1.2–3.7% daily ATR
   const atr = price * atrPct;
 
-  let entry = price;
+  const entry = price;
   let stopLoss: number;
   let target: number;
 
@@ -343,9 +343,8 @@ function buildCore(
 
   const price = fixedPrice ?? priceFor(sector, seed1);
   const dir = direction(seed2, sector);
-  const conf = clamp(
-    (dir === "HOLD" ? 55 : 66) + seed3 * 28 + (dir === "BUY" ? 2 : dir === "SELL" ? 3 : 0)
-  );
+  /** Narrow band — demo-only; does not reflect price history (see chart `/api/signal` for data-backed scores). */
+  const conf = clamp(Math.round(40 + seed3 * 17 + (dir === "HOLD" ? 6 : 4)));
   const vol = volatility(seed2, sector);
   const tf = timeframe(seed3);
 

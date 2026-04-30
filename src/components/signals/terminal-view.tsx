@@ -36,6 +36,33 @@ const COLS: Col[] = [
   { key: "atr",      label: "ATR%",   abbr: "ATR%",  tooltip: "ATR as % of price — daily volatility estimate",                   live: true,  width: "w-16",  align: "right" },
 ];
 
+function SortHeaderIcon({
+  k,
+  activeKey,
+  sortDir,
+}: {
+  k: SortKey;
+  activeKey: SortKey;
+  sortDir: "asc" | "desc";
+}) {
+  return (
+    <span className="ml-0.5 inline-flex flex-col leading-none">
+      <ChevronUp
+        className={cn(
+          "h-2.5 w-2.5",
+          activeKey === k && sortDir === "asc" ? "text-amber-400" : "text-slate-700"
+        )}
+      />
+      <ChevronDown
+        className={cn(
+          "h-2.5 w-2.5",
+          activeKey === k && sortDir === "desc" ? "text-amber-400" : "text-slate-700"
+        )}
+      />
+    </span>
+  );
+}
+
 /* ── Color helpers ───────────────────────────────────────── */
 function rsiColor(v: number) {
   if (v < 30) return "text-emerald-400 bg-emerald-400/10";
@@ -282,13 +309,6 @@ export function TerminalView({ signals, selected, onSelect }: Props) {
     return sortDir === "desc" ? vb - va : va - vb;
   });
 
-  const SortIcon = ({ k }: { k: SortKey }) => (
-    <span className="ml-0.5 inline-flex flex-col leading-none">
-      <ChevronUp   className={cn("h-2.5 w-2.5", sortKey === k && sortDir === "asc"  ? "text-amber-400" : "text-slate-700")} />
-      <ChevronDown className={cn("h-2.5 w-2.5", sortKey === k && sortDir === "desc" ? "text-amber-400" : "text-slate-700")} />
-    </span>
-  );
-
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* legend */}
@@ -306,7 +326,7 @@ export function TerminalView({ signals, selected, onSelect }: Props) {
               {/* Fixed left columns */}
               <th className="sticky left-0 z-20 bg-slate-950 border-r border-white/6 px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 w-20">
                 <button onClick={() => handleSort("symbol")} className="flex items-center gap-0.5 hover:text-white transition">
-                  Ticker <SortIcon k="symbol" />
+                  Ticker <SortHeaderIcon k="symbol" activeKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 w-40">Name</th>
@@ -314,7 +334,7 @@ export function TerminalView({ signals, selected, onSelect }: Props) {
               <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 w-16">Dir</th>
               <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 w-20">
                 <button onClick={() => handleSort("confidence")} className="flex items-center gap-0.5 ml-auto hover:text-white transition">
-                  Conf% <SortIcon k="confidence" />
+                  Conf% <SortHeaderIcon k="confidence" activeKey={sortKey} sortDir={sortDir} />
                 </button>
               </th>
               <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 w-32">Bull / Bear</th>
@@ -325,7 +345,7 @@ export function TerminalView({ signals, selected, onSelect }: Props) {
                   <Tooltip text={col.tooltip}>
                     <button onClick={() => handleSort(col.key)} className="flex items-center gap-0.5 hover:text-white transition w-full justify-end">
                       <span className="text-amber-400/80">{col.abbr}</span>
-                      <SortIcon k={col.key} />
+                      <SortHeaderIcon k={col.key} activeKey={sortKey} sortDir={sortDir} />
                     </button>
                   </Tooltip>
                 </th>
@@ -385,7 +405,7 @@ export function TerminalView({ signals, selected, onSelect }: Props) {
                   <td className="px-3 py-2 text-right">
                     <span className={cn(
                       "font-mono font-semibold text-xs tabular-nums",
-                      sig.confidence >= 80 ? "text-emerald-400" : sig.confidence >= 70 ? "text-amber-300" : "text-slate-300"
+                      sig.confidence >= 58 ? "text-emerald-400" : sig.confidence >= 48 ? "text-amber-300" : "text-slate-300"
                     )}>
                       {sig.confidence}%
                     </span>

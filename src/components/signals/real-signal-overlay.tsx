@@ -202,7 +202,7 @@ function TimelineTab({ real, base }: { real: RealSignal; base: StockSignal }) {
     {
       time: "Live",
       label: "Signal active",
-      detail: `${real.direction} · ${real.confidence}% confidence · cached 4h`,
+      detail: `${real.direction} · ${real.confidence}% agreement · auto-refreshes while this panel is open`,
       color: real.direction === "BUY" ? "bg-emerald-400" : real.direction === "SELL" ? "bg-rose-400" : "bg-slate-400",
       textColor: real.direction === "BUY" ? "text-emerald-300" : real.direction === "SELL" ? "text-rose-300" : "text-slate-300",
     },
@@ -238,7 +238,7 @@ function TimelineTab({ real, base }: { real: RealSignal; base: StockSignal }) {
       <div className="mt-4 flex items-start gap-2 rounded-lg border border-white/5 bg-slate-950/30 p-3">
         <RefreshCw className="h-3.5 w-3.5 shrink-0 mt-0.5 text-slate-600" />
         <p className="text-[10px] text-slate-600 leading-relaxed">
-          Stooq data · {real.dataSource} · fetched {fetchedAt.toLocaleTimeString()} · server-cached 4h
+          {real.dataSource} · last fetch {fetchedAt.toLocaleTimeString()} · short server cache + timed refresh
         </p>
       </div>
     </div>
@@ -246,7 +246,7 @@ function TimelineTab({ real, base }: { real: RealSignal; base: StockSignal }) {
 }
 
 /* ── TAB: Reliability ── */
-function ReliabilityTab({ real, base }: { real: RealSignal; base: StockSignal }) {
+function ReliabilityTab({ real }: { real: RealSignal }) {
   const skew = Math.abs(real.bullStrength - real.bearStrength);
   const score = Math.min(100, Math.round(real.confidence * 0.65 + skew * 0.35));
   const rsiColor = real.rsi < 30 ? "text-emerald-300" : real.rsi > 70 ? "text-rose-300" : "text-slate-300";
@@ -281,8 +281,12 @@ function ReliabilityTab({ real, base }: { real: RealSignal; base: StockSignal })
 
       {/* raw values */}
       <div className="grid grid-cols-2 gap-2">
-        <DataBox label="Confidence"    value={`${real.confidence}%`}
-          accent={real.direction === "BUY" ? "text-emerald-300" : real.direction === "SELL" ? "text-rose-300" : "text-slate-300"} />
+        <DataBox
+          label="Agreement score"
+          value={`${real.confidence}%`}
+          accent={real.direction === "BUY" ? "text-emerald-300" : real.direction === "SELL" ? "text-rose-300" : "text-slate-300"}
+          sub="trend & conflict adjusted · not win rate"
+        />
         <DataBox label="Bull/Bear skew" value={`${skew}%`} accent="text-amber-300" sub="|bull − bear| from indicator votes" />
         <DataBox label="RSI (14)"      value={real.rsi.toFixed(1)}   accent={rsiColor} sub={real.rsi < 30 ? "Oversold" : real.rsi > 70 ? "Overbought" : "Neutral"} />
         <DataBox label="MACD Hist."    value={real.macdHistogram.toFixed(4)}
@@ -295,7 +299,7 @@ function ReliabilityTab({ real, base }: { real: RealSignal; base: StockSignal })
       <div className="flex gap-2 rounded-lg border border-white/5 bg-slate-950/20 p-3">
         <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-slate-600" />
         <p className="text-[10px] text-slate-600 leading-relaxed">
-          Technical signals computed from real historical OHLCV data — educational purposes only, not financial advice. RSI, MACD, EMA, and momentum do not guarantee future price movements.
+          Technical signals from real OHLCV bars. The headline percentage reflects rule agreement discounted for chop (ADX), opposing indicators, ATR%, and history length — not a tested probability of profit. Educational only; not financial advice.
         </p>
       </div>
     </div>
@@ -354,7 +358,7 @@ export function RealSignalOverlay({
               dir === "BUY" ? "text-emerald-300" : dir === "SELL" ? "text-rose-300" : "text-slate-300")}>
               {real.confidence}%
             </p>
-            <p className="mt-0.5 text-[10px] text-slate-500">confidence</p>
+            <p className="mt-0.5 text-[10px] text-slate-500">agreement score</p>
             <p className="mt-1 text-sm font-semibold text-amber-300 tabular-nums">
               {Math.abs(real.bullStrength - real.bearStrength)}%
             </p>
@@ -444,7 +448,7 @@ export function RealSignalOverlay({
         {tab === "trade"       && <TradeTab       real={real} />}
         {tab === "reasoning"   && <ReasoningTab   real={real} base={base} />}
         {tab === "timeline"    && <TimelineTab    real={real} base={base} />}
-        {tab === "reliability" && <ReliabilityTab real={real} base={base} />}
+        {tab === "reliability" && <ReliabilityTab real={real} />}
       </div>
     </div>
   );

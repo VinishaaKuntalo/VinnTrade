@@ -1,16 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import constituentsList from "@/data/sp500-constituents.json";
 import { EXTRA_ASSETS } from "@/data/extra-assets";
 import { buildSignal, buildExtraSignal } from "@/lib/signal-engine";
 import type { StockSignal, AssetClass } from "@/types/signals";
 import type { Direction, GeoSensitivity } from "@/types/signals";
-import { GEO_SENSITIVITY_LABEL } from "@/types/signals";
 import type { StockConstituent } from "@/types/stocks";
 import { SignalCard } from "./signal-card";
-import { SignalDetailPanel } from "./signal-detail-panel";
 import { RealSignalOverlay, RealSignalSkeleton, RealSignalError, RealSignalRateLimited } from "./real-signal-overlay";
 import { useRealSignal } from "@/hooks/use-real-signal";
 import { cn } from "@/lib/cn";
@@ -27,13 +26,25 @@ import {
   LayoutGrid,
   Table2,
 } from "lucide-react";
-import { TerminalView } from "./terminal-view";
+
+const TerminalView = dynamic(
+  () =>
+    import("./terminal-view").then((m) => ({ default: m.TerminalView })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-1 min-h-[280px] items-center justify-center bg-slate-950 text-sm text-slate-500">
+        Loading terminal view…
+      </div>
+    ),
+  }
+);
 
 const constituents = constituentsList as StockConstituent[];
 
-/* build all signals once (deterministic) */
+/** Build deterministic demo signals once (~500 equities + extras). */
 const STOCK_SIGNALS: StockSignal[] = constituents.map(buildSignal);
-// avoid duplicate symbol+assetClass combinations
+
 const seenKeys = new Set<string>();
 const EXTRA_SIGNALS: StockSignal[] = EXTRA_ASSETS.flatMap((a) => {
   const key = `${a.symbol}-${a.assetClass}`;
@@ -41,20 +52,9 @@ const EXTRA_SIGNALS: StockSignal[] = EXTRA_ASSETS.flatMap((a) => {
   seenKeys.add(key);
   return [buildExtraSignal(a)];
 });
+
 const ALL_SIGNALS: StockSignal[] = [...EXTRA_SIGNALS, ...STOCK_SIGNALS];
 
-const ASSET_CLASSES: { id: AssetClass | "All"; label: string; count: number }[] = [
-  { id: "All",         label: "All assets",      count: ALL_SIGNALS.length },
-  { id: "Commodities", label: "Commodities",      count: ALL_SIGNALS.filter(s => s.assetClass === "Commodities").length },
-  { id: "Indices",     label: "Equity Indices",   count: ALL_SIGNALS.filter(s => s.assetClass === "Indices").length },
-  { id: "Forex",       label: "Forex",            count: ALL_SIGNALS.filter(s => s.assetClass === "Forex").length },
-  { id: "Crypto",      label: "Crypto",           count: ALL_SIGNALS.filter(s => s.assetClass === "Crypto").length },
-  { id: "Stocks",      label: "S&P 500 Stocks",   count: STOCK_SIGNALS.length },
-  { id: "ETFs",        label: "ETFs",             count: ALL_SIGNALS.filter(s => s.assetClass === "ETFs").length },
-  { id: "Bonds",       label: "Bonds",            count: ALL_SIGNALS.filter(s => s.assetClass === "Bonds").length },
-];
-
-const ALL_SECTORS = ["All", ...Array.from(new Set(ALL_SIGNALS.map((s) => s.sector))).sort()];
 const GEO_FILTERS: { id: GeoSensitivity | "all"; label: string }[] = [
   { id: "all", label: "All events" },
   { id: "military_escalation", label: "Military escalation" },
@@ -65,11 +65,45 @@ const GEO_FILTERS: { id: GeoSensitivity | "all"; label: string }[] = [
   { id: "monetary_policy", label: "Monetary policy" },
 ];
 
-const DIR_STATS = {
-  BUY:  ALL_SIGNALS.filter((s) => s.direction === "BUY").length,
-  SELL: ALL_SIGNALS.filter((s) => s.direction === "SELL").length,
-  HOLD: ALL_SIGNALS.filter((s) => s.direction === "HOLD").length,
-};
+/** Single pass instead of dozens of `.filter()` calls over the full universe. */
+const STOCK_SIGNALS_COUNT = STOCK_SIGNALS.length;
+const dirAgg = { BUY: 0, SELL: 0, HOLD: 0 };
+const assetCount: Partial<Record<AssetClass, number>> = {};
+const sectors = new Set<string>();
+let severitySum = 0;
+for (const s of ALL_SIGNALS) {
+  dirAgg[s.direction] += 1;
+  severitySum += s.trigger.severity;
+  sectors.add(s.sector);
+  assetCount[s.assetClass] = (assetCount[s.assetClass] ?? 0) + 1;
+}
+
+const ASSET_CLASSES: { id: AssetClass | "All"; label: string; count: number }[] = [
+  { id: "All", label: "All assets", count: ALL_SIGNALS.length },
+  { id: "Commodities", label: "Commodities", count: assetCount.Commodities ?? 0 },
+  { id: "Indices", label: "Equity Indices", count: assetCount.Indices ?? 0 },
+  { id: "Forex", label: "Forex", count: assetCount.Forex ?? 0 },
+  { id: "Crypto", label: "Crypto", count: assetCount.Crypto ?? 0 },
+  { id: "Stocks", label: "S&P 500 Stocks", count: STOCK_SIGNALS_COUNT },
+  { id: "ETFs", label: "ETFs", count: assetCount.ETFs ?? 0 },
+  { id: "Bonds", label: "Bonds", count: assetCount.Bonds ?? 0 },
+];
+
+const ALL_SECTORS = ["All", ...Array.from(sectors).sort()];
+
+const DIR_STATS = dirAgg;
+
+const GTI_VALUE = Math.round(severitySum / ALL_SIGNALS.length);
+const GTI_LABEL =
+  GTI_VALUE > 80 ? "CRITICAL"
+  : GTI_VALUE > 65 ? "ELEVATED"
+  : GTI_VALUE > 45 ? "MODERATE"
+  : "LOW";
+const GTI_COLOR_CLASSES =
+  GTI_VALUE > 80 ? "text-rose-400 border-rose-500/40 bg-rose-500/10"
+  : GTI_VALUE > 65 ? "text-amber-300 border-amber-500/40 bg-amber-500/10"
+  : GTI_VALUE > 45 ? "text-yellow-300 border-yellow-500/40 bg-yellow-500/10"
+  : "text-emerald-300 border-emerald-500/40 bg-emerald-500/10";
 
 function RealPanel({ selected, onClose }: { selected: StockSignal; onClose: () => void }) {
   const state = useRealSignal(selected.symbol);
@@ -110,7 +144,7 @@ export function SignalsBrowser() {
     });
   }, [query, dirFilter, assetFilter, sectorFilter, geoFilter]);
 
-  const dirBtn = (d: Direction | "ALL", icon: React.ReactNode, count?: number) => (
+  const dirBtn = (d: Direction | "ALL", icon: ReactNode, count?: number) => (
     <button
       key={d}
       type="button"
@@ -130,18 +164,6 @@ export function SignalsBrowser() {
     </button>
   );
 
-  /* Global Tension Index — average trigger severity across all signals */
-  const GTI = Math.round(
-    ALL_SIGNALS.reduce((s, sig) => s + sig.trigger.severity, 0) / ALL_SIGNALS.length
-  );
-  const gtiLabel =
-    GTI > 80 ? "CRITICAL" : GTI > 65 ? "ELEVATED" : GTI > 45 ? "MODERATE" : "LOW";
-  const gtiColor =
-    GTI > 80 ? "text-rose-400 border-rose-500/40 bg-rose-500/10"
-    : GTI > 65 ? "text-amber-300 border-amber-500/40 bg-amber-500/10"
-    : GTI > 45 ? "text-yellow-300 border-yellow-500/40 bg-yellow-500/10"
-    : "text-emerald-300 border-emerald-500/40 bg-emerald-500/10";
-
   return (
     <div className="flex h-full flex-col overflow-hidden">
 
@@ -151,9 +173,9 @@ export function SignalsBrowser() {
           <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
             Global Tension Index
           </span>
-          <span className="font-mono text-lg font-bold text-white tabular-nums">{GTI}</span>
-          <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold tracking-wider ${gtiColor}`}>
-            {gtiLabel}
+          <span className="font-mono text-lg font-bold text-white tabular-nums">{GTI_VALUE}</span>
+          <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold tracking-wider ${GTI_COLOR_CLASSES}`}>
+            {GTI_LABEL}
           </span>
         </div>
         <div className="ml-auto flex items-center gap-3 text-[10px] text-slate-500">

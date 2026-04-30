@@ -232,7 +232,7 @@ export function ChartWorkspace({ symbol }: Props) {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto bg-black p-3 lg:p-5">
+      <main className="min-w-0 flex-1 overflow-y-auto overscroll-y-contain bg-black p-3 lg:p-5">
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-xs text-slate-500 shadow-sm">
           <BarChart3 className="h-4 w-4 text-slate-400" />
           <span className="font-semibold text-slate-200">Wide chart workspace</span>
@@ -253,7 +253,7 @@ export function ChartWorkspace({ symbol }: Props) {
               </span>
             )}
             <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 font-medium text-slate-400">
-              Charts are historical/cached unless a real-time feed is connected
+              OHLCV & agreement strip refresh on a timer (see env); quotes poll ~15s when live
             </span>
           </div>
         </div>
